@@ -28,7 +28,7 @@
       "bundler": "metro"
     },
     "experiments": {
-      "baseUrl": "/mediunify-doctor-app"
+      "baseUrl": "/Mediunify-Doctor-Nurse"
     },
     "plugins": []
   }
