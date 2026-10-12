@@ -14,6 +14,34 @@ export default function WebLandingPage({
           <WebLogo size={36} withBorder />
           <Text style={styles.brandText}>Medi<Text style={styles.brandAccent}>Unify</Text></Text>
         </View>
+
+        <View style={styles.navActionsRow}>
+          <TouchableOpacity
+            style={styles.navLinkBtn}
+            onPress={() => onNavigate('doctor-portal')}
+            activeOpacity={0.8}
+          >
+            <Ionicons name="pulse" size={15} color="#00B894" />
+            <Text style={styles.navLinkText}>Doctor Portal</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.navLinkBtn}
+            onPress={() => onNavigate('nurse-portal')}
+            activeOpacity={0.8}
+          >
+            <Ionicons name="heart" size={15} color="#38BDF8" />
+            <Text style={styles.navLinkText}>Nurse Portal</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.navSignInBtn}
+            onPress={() => onNavigate('doctor-login')}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.navSignInText}>Sign In</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Main Hero Container (Deep Navy Background) */}
@@ -275,12 +303,46 @@ const styles = StyleSheet.create({
   navbar: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'flex-start',
+    justifyContent: 'space-between',
     paddingHorizontal: 36,
     paddingVertical: 18,
     backgroundColor: '#081E3E',
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(255, 255, 255, 0.08)',
+    flexWrap: 'wrap',
+    gap: 12,
+  },
+  navActionsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  navLinkBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  navLinkText: {
+    color: '#F8FAFC',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  navSignInBtn: {
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    backgroundColor: '#00B894',
+  },
+  navSignInText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '700',
   },
   brandRow: {
     flexDirection: 'row',
