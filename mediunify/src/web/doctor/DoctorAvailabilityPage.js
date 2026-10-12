@@ -648,9 +648,11 @@ const styles = StyleSheet.create({
   topHeaderRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     marginBottom: 20,
     width: '100%',
+    flexWrap: 'wrap',
+    gap: 12,
   },
   headerTextCol: {
     alignItems: 'flex-start',

@@ -84,6 +84,7 @@ export default function DoctorSidebar({
 const styles = StyleSheet.create({
   sidebar: {
     width: 200,
+    flexShrink: 0,
     backgroundColor: '#081E3E',
     flexDirection: 'column',
     justifyContent: 'space-between',
@@ -91,6 +92,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     borderRightWidth: 1,
     borderRightColor: 'rgba(255, 255, 255, 0.08)',
+    overflowY: 'auto',
   },
   topSection: {
     gap: 24,

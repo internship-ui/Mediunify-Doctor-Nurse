@@ -26,7 +26,7 @@ export default function DoctorDashboardPage({
     };
   }, []);
 
-  const isNarrow = windowWidth < 1200;
+  const isNarrow = windowWidth < 1280;
 
   // Filters & State
   const [statsPeriod, setStatsPeriod] = useState('Week'); // 'Week' | 'Month' | 'Year'
@@ -1492,6 +1492,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: 0,
     gap: 20,
     zIndex: 100,
+    flexWrap: 'wrap',
   },
   searchPill: {
     flexDirection: 'row',
@@ -1763,6 +1764,7 @@ const styles = StyleSheet.create({
   statCardsRow: {
     flexDirection: 'row',
     gap: 14,
+    flexWrap: 'wrap',
   },
   statCardsRowNarrow: {
     flexWrap: 'wrap',
@@ -1770,6 +1772,7 @@ const styles = StyleSheet.create({
   },
   statBox: {
     flex: 1,
+    minWidth: 140,
     backgroundColor: '#F8FAFC',
     borderRadius: 18,
     padding: 16,
@@ -1907,9 +1910,11 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
     justifyContent: 'space-between',
     gap: 28,
+    flexWrap: 'wrap',
   },
   diagnosesContentRowNarrow: {
     gap: 20,
+    flexWrap: 'wrap',
   },
   barChartPillarsWrap: {
     flexDirection: 'row',
@@ -2000,12 +2005,15 @@ const styles = StyleSheet.create({
   bottomSplitRow: {
     flexDirection: 'row',
     gap: 22,
+    flexWrap: 'wrap',
   },
   bottomSplitRowNarrow: {
     gap: 16,
+    flexWrap: 'wrap',
   },
   subCardHalf: {
     flex: 1,
+    minWidth: 280,
     gap: 14,
   },
   counterBadge: {

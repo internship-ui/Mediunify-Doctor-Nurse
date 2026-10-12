@@ -111,14 +111,16 @@ export default function NurseSidebar({
 
 const styles = StyleSheet.create({
   sidebar: {
-    width: 220,
+    width: 200,
+    flexShrink: 0,
     backgroundColor: '#081E3E',
     flexDirection: 'column',
     justifyContent: 'space-between',
     paddingVertical: 20,
-    paddingHorizontal: 14,
+    paddingHorizontal: 12,
     borderRightWidth: 1,
     borderRightColor: 'rgba(255, 255, 255, 0.08)',
+    overflowY: 'auto',
   },
   topSection: {
     gap: 24,

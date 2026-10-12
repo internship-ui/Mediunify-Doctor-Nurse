@@ -5,11 +5,16 @@ const CSS_STYLES = `
 /* MediUnify Clinician Web Application System */
 @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Inter:wght@300;400;500;600;700&display=swap');
 
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
 html, body {
   margin: 0;
   padding: 0;
   width: 100%;
   height: 100%;
+  overflow-x: hidden;
   background-color: #F8FAFC;
   font-family: 'Plus Jakarta Sans', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
   -webkit-font-smoothing: antialiased;
@@ -22,6 +27,11 @@ html, body {
   height: 100%;
   display: flex;
   flex-direction: column;
+  overflow-x: hidden;
+}
+
+input, textarea, select, button {
+  font-family: inherit;
 }
 
 /* Custom Sleek Scrollbars */

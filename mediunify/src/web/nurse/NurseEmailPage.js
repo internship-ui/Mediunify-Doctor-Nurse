@@ -750,7 +750,8 @@ const styles = StyleSheet.create({
 
   // COLUMN 1: Folders
   foldersCol: {
-    width: 210,
+    width: 200,
+    flexShrink: 0,
     backgroundColor: '#FFFFFF',
     borderRightWidth: 1,
     borderRightColor: '#E2E8F0',
@@ -824,7 +825,8 @@ const styles = StyleSheet.create({
 
   // COLUMN 2: Message list
   messagesListCol: {
-    width: 380,
+    width: 320,
+    flexShrink: 0,
     backgroundColor: '#F8FAFC',
     borderRightWidth: 1,
     borderRightColor: '#E2E8F0',

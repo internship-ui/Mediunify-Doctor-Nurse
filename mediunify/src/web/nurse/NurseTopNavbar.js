@@ -716,6 +716,8 @@ const styles = StyleSheet.create({
     minHeight: 70,
     zIndex: 100,
     position: 'relative',
+    flexWrap: 'wrap',
+    gap: 12,
   },
   popoverBackdrop: {
     position: 'fixed',
