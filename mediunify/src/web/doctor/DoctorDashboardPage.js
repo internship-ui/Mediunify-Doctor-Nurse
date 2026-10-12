@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Modal, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -9,6 +9,25 @@ export default function DoctorDashboardPage({
   onViewPatientDetails,
   onViewFollowUpPatient,
 }) {
+  // Dynamic screen measurement for responsive alignment on desktop site / phone
+  const [windowWidth, setWindowWidth] = useState(() => {
+    if (typeof window !== 'undefined') return window.innerWidth;
+    return 1024;
+  });
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const onResize = () => setWindowWidth(window.innerWidth);
+    window.addEventListener('resize', onResize);
+    window.addEventListener('orientationchange', onResize);
+    return () => {
+      window.removeEventListener('resize', onResize);
+      window.removeEventListener('orientationchange', onResize);
+    };
+  }, []);
+
+  const isNarrow = windowWidth < 1200;
+
   // Filters & State
   const [statsPeriod, setStatsPeriod] = useState('Week'); // 'Week' | 'Month' | 'Year'
   const [diagnosesOrder, setDiagnosesOrder] = useState('Descending');
@@ -535,14 +554,14 @@ export default function DoctorDashboardPage({
       {/* ============================================================== */}
       <ScrollView
         style={styles.scrollViewport}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[styles.scrollContent, isNarrow && styles.scrollContentNarrow]}
         showsVerticalScrollIndicator={false}
       >
-        <View style={styles.dashboardGrid}>
+        <View style={[styles.dashboardGrid, isNarrow && styles.dashboardGridNarrow]}>
           {/* ========================================================== */}
-          {/* LEFT / CENTER COLUMN (approx 68% width)                    */}
+          {/* LEFT / CENTER COLUMN                                       */}
           {/* ========================================================== */}
-          <View style={styles.leftColumn}>
+          <View style={[styles.leftColumn, isNarrow && styles.leftColumnNarrow]}>
             {/* -------------------------------------------------------- */}
             {/* CARD 1: STATISTICS                                      */}
             {/* -------------------------------------------------------- */}
@@ -574,9 +593,9 @@ export default function DoctorDashboardPage({
               </View>
 
               {/* 4 Stat Metric Cards in Teal & Navy */}
-              <View style={styles.statCardsRow}>
+              <View style={[styles.statCardsRow, isNarrow && styles.statCardsRowNarrow]}>
                 {/* Metric 1: New patients (HIGHLIGHTED TEAL CARD) */}
-                <View style={[styles.statBox, styles.statBoxTealHighlight]}>
+                <View style={[styles.statBox, styles.statBoxTealHighlight, isNarrow && styles.statBoxNarrow]}>
                   <View style={styles.statBoxTopRow}>
                     <Text style={styles.statNumberTeal}>{currentStats.newPatients}</Text>
                     <View style={styles.pillBadgeTeal}>
@@ -584,11 +603,11 @@ export default function DoctorDashboardPage({
                       <Text style={styles.pillBadgeTealText}>{currentStats.newDiff.replace('-', '')}</Text>
                     </View>
                   </View>
-                  <Text style={styles.statLabelTeal}>New patients</Text>
+                  <Text style={styles.statLabelTeal} numberOfLines={1}>New patients</Text>
                 </View>
 
                 {/* Metric 2: Total patients */}
-                <View style={styles.statBox}>
+                <View style={[styles.statBox, isNarrow && styles.statBoxNarrow]}>
                   <View style={styles.statBoxTopRow}>
                     <Text style={styles.statNumberNavy}>{currentStats.totalPatients}</Text>
                     <View style={styles.pillBadgeGreen}>
@@ -596,11 +615,11 @@ export default function DoctorDashboardPage({
                       <Text style={styles.pillBadgeGreenText}>{currentStats.totalDiff.replace('+', '')}</Text>
                     </View>
                   </View>
-                  <Text style={styles.statLabelMuted}>Total patients</Text>
+                  <Text style={styles.statLabelMuted} numberOfLines={1}>Total patients</Text>
                 </View>
 
                 {/* Metric 3: Time to appt. */}
-                <View style={styles.statBox}>
+                <View style={[styles.statBox, isNarrow && styles.statBoxNarrow]}>
                   <View style={styles.statBoxTopRow}>
                     <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 2 }}>
                       <Text style={styles.statNumberNavy}>{currentStats.timeToAppt.split(' ')[0]}</Text>
@@ -611,11 +630,11 @@ export default function DoctorDashboardPage({
                       <Text style={styles.pillBadgeGreenText}>{currentStats.timeDiff.replace('-', '')}</Text>
                     </View>
                   </View>
-                  <Text style={styles.statLabelMuted}>Time to appt.</Text>
+                  <Text style={styles.statLabelMuted} numberOfLines={1}>Time to appt.</Text>
                 </View>
 
                 {/* Metric 4: PSS */}
-                <View style={styles.statBox}>
+                <View style={[styles.statBox, isNarrow && styles.statBoxNarrow]}>
                   <View style={styles.statBoxTopRow}>
                     <Text style={styles.statNumberNavy}>{currentStats.pss}</Text>
                     <View style={styles.pillBadgeTealLight}>
@@ -624,7 +643,7 @@ export default function DoctorDashboardPage({
                     </View>
                   </View>
                   <View style={styles.pssLabelRow}>
-                    <Text style={styles.statLabelMuted}>PSS</Text>
+                    <Text style={styles.statLabelMuted} numberOfLines={1}>PSS</Text>
                     <Ionicons name="information-circle-outline" size={13} color="#94A3B8" />
                   </View>
                 </View>
@@ -647,9 +666,9 @@ export default function DoctorDashboardPage({
                 </TouchableOpacity>
               </View>
 
-              <View style={styles.diagnosesContentRow}>
+              <View style={[styles.diagnosesContentRow, isNarrow && styles.diagnosesContentRowNarrow]}>
                 {/* Left: Bar Chart Pillars with Percentage Badges */}
-                <View style={styles.barChartPillarsWrap}>
+                <View style={[styles.barChartPillarsWrap, isNarrow && styles.barChartPillarsWrapNarrow]}>
                   {diagnosesList.map((item, idx) => {
                     const isTop = idx === 0;
                     return (
@@ -672,37 +691,37 @@ export default function DoctorDashboardPage({
                 </View>
 
                 {/* Right: Two-Column Text Breakdown */}
-                <View style={styles.diagnosesLegendGrid}>
+                <View style={[styles.diagnosesLegendGrid, isNarrow && styles.diagnosesLegendGridNarrow]}>
                   <View style={styles.diagnosesLegendCol}>
                     <View style={styles.diagnosesItemRow}>
-                      <Text style={styles.diagnosesCodeText}>HTN</Text>
+                      <Text style={styles.diagnosesCodeText} numberOfLines={1}>HTN</Text>
                       <Text style={styles.diagnosesPctText}>31%</Text>
                     </View>
                     <View style={styles.diagnosesItemRow}>
-                      <Text style={styles.diagnosesCodeText}>Dyslipidemia</Text>
+                      <Text style={styles.diagnosesCodeText} numberOfLines={1}>Dyslipidemia</Text>
                       <Text style={styles.diagnosesPctText}>23%</Text>
                     </View>
                     <View style={styles.diagnosesItemRow}>
-                      <Text style={styles.diagnosesCodeText}>CAD/Angina</Text>
+                      <Text style={styles.diagnosesCodeText} numberOfLines={1}>CAD/Angina</Text>
                       <Text style={styles.diagnosesPctText}>20%</Text>
                     </View>
                     <View style={styles.diagnosesItemRow}>
-                      <Text style={styles.diagnosesCodeText}>Heart Failure</Text>
+                      <Text style={styles.diagnosesCodeText} numberOfLines={1}>Heart Failure</Text>
                       <Text style={styles.diagnosesPctText}>17%</Text>
                     </View>
                   </View>
 
                   <View style={styles.diagnosesLegendCol}>
                     <View style={styles.diagnosesItemRow}>
-                      <Text style={styles.diagnosesCodeText}>Arrhythmias</Text>
+                      <Text style={styles.diagnosesCodeText} numberOfLines={1}>Arrhythmias</Text>
                       <Text style={styles.diagnosesPctText}>11%</Text>
                     </View>
                     <View style={styles.diagnosesItemRow}>
-                      <Text style={styles.diagnosesCodeText}>Post-MI/PCI</Text>
+                      <Text style={styles.diagnosesCodeText} numberOfLines={1}>Post-MI/PCI</Text>
                       <Text style={styles.diagnosesPctText}>9%</Text>
                     </View>
                     <View style={styles.diagnosesItemRow}>
-                      <Text style={styles.diagnosesCodeText}>Other</Text>
+                      <Text style={styles.diagnosesCodeText} numberOfLines={1}>Other</Text>
                       <Text style={styles.diagnosesPctText}>6%</Text>
                     </View>
                   </View>
@@ -713,7 +732,7 @@ export default function DoctorDashboardPage({
             {/* -------------------------------------------------------- */}
             {/* CARD 3 & 4: NEW PATIENTS TREND CHART & PATIENTS LIST     */}
             {/* -------------------------------------------------------- */}
-            <View style={styles.bottomSplitRow}>
+            <View style={[styles.bottomSplitRow, isNarrow && styles.bottomSplitRowNarrow]}>
               {/* Left Sub-card: New Patients Trend Chart */}
               <View style={[styles.cardContainer, styles.subCardHalf]}>
                 <View style={styles.cardHeaderRow}>
@@ -886,8 +905,8 @@ export default function DoctorDashboardPage({
                       </View>
 
                       <View style={styles.patientListInfoCol}>
-                        <Text style={styles.patientListNameText}>{patient.name}</Text>
-                        <Text style={styles.patientListSubText}>
+                        <Text style={styles.patientListNameText} numberOfLines={1}>{patient.name}</Text>
+                        <Text style={styles.patientListSubText} numberOfLines={1}>
                           {patient.gender}, {patient.age} y.o. • {patient.reason}
                         </Text>
                       </View>
@@ -939,7 +958,7 @@ export default function DoctorDashboardPage({
           {/* ========================================================== */}
           {/* RIGHT COLUMN: SCHEDULE TIMELINE (approx 32% width)         */}
           {/* ========================================================== */}
-          <View style={styles.rightColumn}>
+          <View style={[styles.rightColumn, isNarrow && styles.rightColumnNarrow]}>
             <View style={[styles.cardContainer, styles.scheduleCard]}>
               {/* Header: Schedule Title + Today/This week Toggle */}
               <View style={styles.cardHeaderRow}>
@@ -1614,23 +1633,43 @@ const styles = StyleSheet.create({
   scrollContent: {
     padding: 24,
   },
+  scrollContentNarrow: {
+    padding: 16,
+    paddingBottom: 40,
+  },
   dashboardGrid: {
     flexDirection: 'row',
     gap: 22,
     alignItems: 'flex-start',
   },
+  dashboardGridNarrow: {
+    flexDirection: 'column',
+    gap: 20,
+    alignItems: 'stretch',
+  },
 
-  /* Left Major Column (~68%) */
+  /* Left Major Column */
   leftColumn: {
     flex: 2.1,
     gap: 22,
   },
+  leftColumnNarrow: {
+    width: '100%',
+    flex: 0,
+    gap: 20,
+  },
 
-  /* Right Timeline Column (~32%) */
+  /* Right Timeline Column */
   rightColumn: {
     flex: 1,
     minWidth: 320,
     gap: 22,
+  },
+  rightColumnNarrow: {
+    width: '100%',
+    flex: 0,
+    minWidth: 0,
+    gap: 20,
   },
 
   /* Card Containers */
@@ -1725,6 +1764,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 14,
   },
+  statCardsRowNarrow: {
+    flexWrap: 'wrap',
+    gap: 10,
+  },
   statBox: {
     flex: 1,
     backgroundColor: '#F8FAFC',
@@ -1733,6 +1776,10 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#E2E8F0',
     gap: 8,
+  },
+  statBoxNarrow: {
+    minWidth: 140,
+    padding: 13,
   },
   /* HIGHLIGHTED TEAL CARD (The signature card from reference) */
   statBoxTealHighlight: {
@@ -1861,12 +1908,19 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: 28,
   },
+  diagnosesContentRowNarrow: {
+    gap: 20,
+  },
   barChartPillarsWrap: {
     flexDirection: 'row',
     alignItems: 'flex-end',
     gap: 12,
     flex: 1.2,
     paddingBottom: 4,
+  },
+  barChartPillarsWrapNarrow: {
+    flex: 1.1,
+    minHeight: 160,
   },
   barColumnContainer: {
     alignItems: 'center',
@@ -1910,24 +1964,34 @@ const styles = StyleSheet.create({
     flex: 1.1,
     paddingBottom: 6,
   },
+  diagnosesLegendGridNarrow: {
+    flex: 1.3,
+    gap: 18,
+  },
   diagnosesLegendCol: {
     flex: 1,
     gap: 12,
+    minWidth: 105,
   },
   diagnosesItemRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    gap: 8,
   },
   diagnosesCodeText: {
     fontSize: 12.5,
     fontWeight: '600',
     color: '#081E3E',
+    flexShrink: 1,
   },
   diagnosesPctText: {
     fontSize: 12.5,
     fontWeight: '800',
     color: '#00B894',
+    marginLeft: 4,
+    minWidth: 32,
+    textAlign: 'right',
   },
 
   /* ------------------------------------------------------------------ */
@@ -1936,6 +2000,9 @@ const styles = StyleSheet.create({
   bottomSplitRow: {
     flexDirection: 'row',
     gap: 22,
+  },
+  bottomSplitRowNarrow: {
+    gap: 16,
   },
   subCardHalf: {
     flex: 1,
