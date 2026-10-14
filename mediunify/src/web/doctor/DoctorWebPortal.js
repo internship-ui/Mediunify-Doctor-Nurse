@@ -12,7 +12,6 @@ import DoctorSchedulePage from './DoctorSchedulePage';
 import DoctorEarningsPage from './DoctorEarningsPage';
 import DoctorHomeNursingPage from './DoctorHomeNursingPage';
 import DoctorProfilePage from './DoctorProfilePage';
-import DoctorEmailPage from './DoctorEmailPage';
 
 export default function DoctorWebPortal({ onNavigateHome }) {
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -128,15 +127,6 @@ export default function DoctorWebPortal({ onNavigateHome }) {
           <DoctorConsultationPage
             selectedConsultation={selectedConsultation}
             setActiveTab={handleSelectTab}
-          />
-        );
-      case 'email':
-      case 'mail':
-      case 'messages':
-        return (
-          <DoctorEmailPage
-            setActiveTab={handleSelectTab}
-            onNavigateHome={onNavigateHome}
           />
         );
       case 'consultnotes':

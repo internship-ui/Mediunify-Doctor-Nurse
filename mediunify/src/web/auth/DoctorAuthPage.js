@@ -14,9 +14,17 @@ import { useAuth } from '../../context/AuthContext';
 import { doctor } from '../../data/mockData';
 import WebLogo from '../components/WebLogo';
 
-export default function DoctorAuthPage({ onNavigate }) {
+export default function DoctorAuthPage({ onNavigate, initialMode = 'signin' }) {
   const { login, register } = useAuth();
-  const [isRegister, setIsRegister] = useState(false);
+  const [isRegister, setIsRegister] = useState(initialMode === 'signup');
+
+  // Sync mode whenever initialMode prop updates
+  React.useEffect(() => {
+    setIsRegister(initialMode === 'signup');
+    if (initialMode === 'signup') {
+      setSignUpStep(1);
+    }
+  }, [initialMode]);
 
   // Sign In State
   const [signInEmailOrPhone, setSignInEmailOrPhone] = useState('ananya.rao@mediunify.com');
@@ -230,15 +238,26 @@ export default function DoctorAuthPage({ onNavigate }) {
       {/* 1 & 3: TOP HEADER WITH LOGO AND "medi" WHITE + "unify" GREEN */}
       {/* ======================================================== */}
       <View style={styles.navBar}>
-        {/* Back to Home */}
-        <TouchableOpacity
-          style={styles.backBtn}
-          onPress={() => onNavigate('landing')}
-          activeOpacity={0.7}
-        >
-          <Ionicons name="arrow-back" size={17} color="#CBD5E1" />
-          <Text style={styles.backBtnText}>Back to Home</Text>
-        </TouchableOpacity>
+        {/* Back to Home & Change Role */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          <TouchableOpacity
+            style={styles.backBtn}
+            onPress={() => onNavigate('landing')}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="home-outline" size={15} color="#CBD5E1" />
+            <Text style={styles.backBtnText}>Home</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.backBtn}
+            onPress={() => onNavigate(isRegister ? 'role-signup' : 'role-signin')}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="people-outline" size={15} color="#CBD5E1" />
+            <Text style={styles.backBtnText}>Roles</Text>
+          </TouchableOpacity>
+        </View>
 
         {/* Center Logo and Brand: "medi" in white and "unify" in green */}
         <View style={styles.logoRow}>

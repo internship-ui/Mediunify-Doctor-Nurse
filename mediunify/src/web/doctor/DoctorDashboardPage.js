@@ -340,14 +340,16 @@ export default function DoctorDashboardPage({
 
         {/* Right Actions: Email Button + Notification Bell + Doctor Profile */}
         <View style={styles.topRightGroup}>
-          {/* Small Email Button -> Direct to Email Page */}
+          {/* Email Button -> Opens External Google Mail Compose with "to" tag */}
           <TouchableOpacity
             style={styles.topEmailButton}
             onPress={() => {
-              if (setActiveTab) setActiveTab('email');
+              if (typeof window !== 'undefined') {
+                window.open('https://mail.google.com/mail/?view=cm&fs=1&to=', '_blank');
+              }
             }}
             activeOpacity={0.7}
-            title="Messages & Email Communications"
+            title="Compose Email via Google Mail"
           >
             <Ionicons name="mail-outline" size={19} color="#081E3E" />
           </TouchableOpacity>
@@ -651,81 +653,109 @@ export default function DoctorDashboardPage({
             </View>
 
             {/* -------------------------------------------------------- */}
-            {/* CARD 2: DIAGNOSES WITH BAR CHART & BREAKDOWN            */}
+            {/* CARD 2: NEXT APPOINTMENTS (LONG CARD BOX)               */}
             {/* -------------------------------------------------------- */}
             <View style={styles.cardContainer}>
               <View style={styles.cardHeaderRow}>
-                <Text style={styles.cardMainHeading}>Diagnoses</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  <Text style={styles.cardMainHeading}>Next Appointments</Text>
+                  <View style={styles.counterBadgeTeal}>
+                    <Text style={styles.counterBadgeTealText}>{scheduleConsultations.length} Upcoming</Text>
+                  </View>
+                </View>
                 <TouchableOpacity
-                  style={styles.dropdownSelectorPill}
-                  onPress={() => setDiagnosesOrder(prev => prev === 'Descending' ? 'Ascending' : 'Descending')}
+                  style={styles.viewAllApptsBtn}
+                  onPress={() => {
+                    if (setActiveTab) setActiveTab('appointments');
+                  }}
                   activeOpacity={0.7}
                 >
-                  <Text style={styles.dropdownSelectorText}>{diagnosesOrder} order</Text>
-                  <Ionicons name="chevron-down" size={12} color="#64748B" />
+                  <Text style={styles.viewAllApptsBtnText}>View All Appointments</Text>
+                  <Ionicons name="arrow-forward" size={13} color="#00B894" />
                 </TouchableOpacity>
               </View>
 
-              <View style={[styles.diagnosesContentRow, isNarrow && styles.diagnosesContentRowNarrow]}>
-                {/* Left: Bar Chart Pillars with Percentage Badges */}
-                <View style={[styles.barChartPillarsWrap, isNarrow && styles.barChartPillarsWrapNarrow]}>
-                  {diagnosesList.map((item, idx) => {
-                    const isTop = idx === 0;
-                    return (
-                      <View key={item.code} style={styles.barColumnContainer}>
-                        <Text style={[styles.barPctLabel, isTop && styles.barPctLabelHighlight]}>
-                          {item.pct}%
-                        </Text>
-                        <View style={styles.barTrack}>
-                          <View
-                            style={[
-                              styles.barFill,
-                              { height: item.height },
-                              isTop ? styles.barFillPrimary : (idx % 2 === 0 ? styles.barFillTealMid : styles.barFillNavySoft),
-                            ]}
+              {/* Long Card Box List of Next Appointments */}
+              <View style={styles.nextApptsListWrap}>
+                {scheduleConsultations.slice(0, 3).map((item, idx) => {
+                  const isVideo = item.type === 'Video';
+                  return (
+                    <View key={item.id || idx} style={styles.nextApptLongRowCard}>
+                      <View style={styles.nextApptInfoLeft}>
+                        {/* Time & Channel Pill */}
+                        <View style={[styles.nextApptTimePill, isVideo ? styles.nextApptTimePillVideo : styles.nextApptTimePillInPerson]}>
+                          <Ionicons
+                            name={isVideo ? 'videocam' : 'business'}
+                            size={12}
+                            color={isVideo ? '#0284C7' : '#0F766E'}
                           />
+                          <Text style={[styles.nextApptTimePillText, { color: isVideo ? '#0284C7' : '#0F766E' }]}>
+                            {item.time}
+                          </Text>
+                        </View>
+
+                        {/* Patient Avatar */}
+                        <View style={[styles.nextApptAvatarBox, { backgroundColor: item.avatarBg }]}>
+                          <Text style={[styles.nextApptAvatarInitials, { color: item.avatarColor }]}>
+                            {item.initials}
+                          </Text>
+                        </View>
+
+                        {/* Patient Demographic & Reason */}
+                        <View style={styles.nextApptMetaTextCol}>
+                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                            <Text style={styles.nextApptPatientName}>{item.name}</Text>
+                            <Text style={styles.nextApptDemographics}>
+                              {item.age} yrs · {item.gender} · 🩸 {item.bloodGroup}
+                            </Text>
+                          </View>
+                          <Text style={styles.nextApptReasonText} numberOfLines={1}>
+                            {item.reason}
+                          </Text>
                         </View>
                       </View>
-                    );
-                  })}
-                </View>
 
-                {/* Right: Two-Column Text Breakdown */}
-                <View style={[styles.diagnosesLegendGrid, isNarrow && styles.diagnosesLegendGridNarrow]}>
-                  <View style={styles.diagnosesLegendCol}>
-                    <View style={styles.diagnosesItemRow}>
-                      <Text style={styles.diagnosesCodeText} numberOfLines={1}>HTN</Text>
-                      <Text style={styles.diagnosesPctText}>31%</Text>
-                    </View>
-                    <View style={styles.diagnosesItemRow}>
-                      <Text style={styles.diagnosesCodeText} numberOfLines={1}>Dyslipidemia</Text>
-                      <Text style={styles.diagnosesPctText}>23%</Text>
-                    </View>
-                    <View style={styles.diagnosesItemRow}>
-                      <Text style={styles.diagnosesCodeText} numberOfLines={1}>CAD/Angina</Text>
-                      <Text style={styles.diagnosesPctText}>20%</Text>
-                    </View>
-                    <View style={styles.diagnosesItemRow}>
-                      <Text style={styles.diagnosesCodeText} numberOfLines={1}>Heart Failure</Text>
-                      <Text style={styles.diagnosesPctText}>17%</Text>
-                    </View>
-                  </View>
+                      {/* Right Status Pill & Start Consult Action */}
+                      <View style={styles.nextApptActionsRight}>
+                        <View
+                          style={[
+                            styles.nextApptStatusBadge,
+                            item.isNext ? styles.nextApptStatusBadgeNext : styles.nextApptStatusBadgeReady,
+                          ]}
+                        >
+                          <View
+                            style={[
+                              styles.nextApptStatusDot,
+                              { backgroundColor: item.isNext ? '#00B894' : '#64748B' },
+                            ]}
+                          />
+                          <Text
+                            style={[
+                              styles.nextApptStatusBadgeText,
+                              { color: item.isNext ? '#00876A' : '#475569' },
+                            ]}
+                          >
+                            {item.status}
+                          </Text>
+                        </View>
 
-                  <View style={styles.diagnosesLegendCol}>
-                    <View style={styles.diagnosesItemRow}>
-                      <Text style={styles.diagnosesCodeText} numberOfLines={1}>Arrhythmias</Text>
-                      <Text style={styles.diagnosesPctText}>11%</Text>
+                        <TouchableOpacity
+                          style={styles.nextApptStartConsultBtn}
+                          onPress={() => handleStartInPersonConsult(item)}
+                          activeOpacity={0.85}
+                        >
+                          <Ionicons
+                            name={isVideo ? 'videocam' : 'pulse'}
+                            size={14}
+                            color="#FFFFFF"
+                          />
+                          <Text style={styles.nextApptStartConsultBtnText}>Start Consult</Text>
+                          <Ionicons name="arrow-forward" size={13} color="#FFFFFF" />
+                        </TouchableOpacity>
+                      </View>
                     </View>
-                    <View style={styles.diagnosesItemRow}>
-                      <Text style={styles.diagnosesCodeText} numberOfLines={1}>Post-MI/PCI</Text>
-                      <Text style={styles.diagnosesPctText}>9%</Text>
-                    </View>
-                    <View style={styles.diagnosesItemRow}>
-                      <Text style={styles.diagnosesCodeText} numberOfLines={1}>Other</Text>
-                      <Text style={styles.diagnosesPctText}>6%</Text>
-                    </View>
-                  </View>
-                </View>
+                  );
+                })}
               </View>
             </View>
 
@@ -1497,15 +1527,20 @@ const styles = StyleSheet.create({
   searchPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F3F6FA', // Matches whole dashboard page background
+    backgroundColor: '#FFFFFF',
     borderRadius: 24,
     paddingHorizontal: 16,
-    paddingVertical: 8,
+    paddingVertical: 9,
     flex: 1,
-    maxWidth: 420,
+    maxWidth: 440,
     gap: 10,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderWidth: 2,
+    borderColor: '#00B894',
+    shadowColor: '#00B894',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.18,
+    shadowRadius: 8,
+    elevation: 3,
   },
   searchIcon: {
     marginRight: 2,
@@ -1875,128 +1910,141 @@ const styles = StyleSheet.create({
   },
 
   /* ------------------------------------------------------------------ */
-  /* CARD 2: DIAGNOSES BAR CHART & BREAKDOWN                            */
+  /* CARD 2: NEXT APPOINTMENTS LONG CARD BOX STYLES                     */
   /* ------------------------------------------------------------------ */
-  dropdownSelectorPill: {
+  viewAllApptsBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    backgroundColor: '#F1F5F9',
+    gap: 5,
+    backgroundColor: '#E6F8F4',
     paddingHorizontal: 12,
     paddingVertical: 6,
-    borderRadius: 16,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 184, 148, 0.25)',
   },
-  dropdownSelectorText: {
-    fontSize: 11.5,
+  viewAllApptsBtnText: {
+    fontSize: 12,
     fontWeight: '700',
-    color: '#475569',
+    color: '#00876A',
   },
-  dropdownSelectorPillSmall: {
+  nextApptsListWrap: {
+    gap: 12,
+  },
+  nextApptLongRowCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    backgroundColor: '#F1F5F9',
-    paddingHorizontal: 9,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  dropdownSelectorTextSmall: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#475569',
-  },
-  diagnosesContentRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
     justifyContent: 'space-between',
-    gap: 28,
+    backgroundColor: '#F8FAFC',
+    borderRadius: 16,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    gap: 16,
     flexWrap: 'wrap',
   },
-  diagnosesContentRowNarrow: {
-    gap: 20,
-    flexWrap: 'wrap',
-  },
-  barChartPillarsWrap: {
+  nextApptInfoLeft: {
     flexDirection: 'row',
-    alignItems: 'flex-end',
+    alignItems: 'center',
+    gap: 14,
+    flex: 1,
+    minWidth: 280,
+  },
+  nextApptTimePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 10,
+  },
+  nextApptTimePillVideo: {
+    backgroundColor: '#E0F2FE',
+  },
+  nextApptTimePillInPerson: {
+    backgroundColor: '#E6F8F4',
+  },
+  nextApptTimePillText: {
+    fontSize: 11.5,
+    fontWeight: '800',
+  },
+  nextApptAvatarBox: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  nextApptAvatarInitials: {
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  nextApptMetaTextCol: {
+    flex: 1,
+    gap: 3,
+  },
+  nextApptPatientName: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#081E3E',
+  },
+  nextApptDemographics: {
+    fontSize: 11.5,
+    color: '#64748B',
+    fontWeight: '500',
+  },
+  nextApptReasonText: {
+    fontSize: 12,
+    color: '#334155',
+    fontWeight: '500',
+  },
+  nextApptActionsRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 12,
-    flex: 1.2,
-    paddingBottom: 4,
   },
-  barChartPillarsWrapNarrow: {
-    flex: 1.1,
-    minHeight: 160,
-  },
-  barColumnContainer: {
+  nextApptStatusBadge: {
+    flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    flex: 1,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 12,
   },
-  barPctLabel: {
-    fontSize: 10.5,
-    fontWeight: '700',
-    color: '#64748B',
+  nextApptStatusBadgeNext: {
+    backgroundColor: '#E6F8F4',
   },
-  barPctLabelHighlight: {
-    color: '#00B894',
-    fontWeight: '800',
-  },
-  barTrack: {
-    width: '100%',
-    maxWidth: 38,
-    height: 145,
+  nextApptStatusBadgeReady: {
     backgroundColor: '#F1F5F9',
-    borderRadius: 18,
-    justifyContent: 'flex-end',
-    overflow: 'hidden',
   },
-  barFill: {
-    width: '100%',
-    borderRadius: 18,
+  nextApptStatusDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
   },
-  barFillPrimary: {
-    backgroundColor: '#00B894', // Main top diagnosis in Teal
+  nextApptStatusBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
   },
-  barFillTealMid: {
-    backgroundColor: '#14B8A6',
-  },
-  barFillNavySoft: {
-    backgroundColor: '#081E3E', // Navy accent pillars
-  },
-  diagnosesLegendGrid: {
-    flexDirection: 'row',
-    gap: 24,
-    flex: 1.1,
-    paddingBottom: 6,
-  },
-  diagnosesLegendGridNarrow: {
-    flex: 1.3,
-    gap: 18,
-  },
-  diagnosesLegendCol: {
-    flex: 1,
-    gap: 12,
-    minWidth: 105,
-  },
-  diagnosesItemRow: {
+  nextApptStartConsultBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 8,
+    gap: 6,
+    backgroundColor: '#00B894',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 12,
+    shadowColor: '#00B894',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 5,
+    elevation: 2,
   },
-  diagnosesCodeText: {
-    fontSize: 12.5,
-    fontWeight: '600',
-    color: '#081E3E',
-    flexShrink: 1,
-  },
-  diagnosesPctText: {
-    fontSize: 12.5,
-    fontWeight: '800',
-    color: '#00B894',
-    marginLeft: 4,
-    minWidth: 32,
-    textAlign: 'right',
+  nextApptStartConsultBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#FFFFFF',
   },
 
   /* ------------------------------------------------------------------ */

@@ -901,7 +901,7 @@ export default function DoctorFollowUpsPage({
       {/*    WITH DIMMED BACKGROUND & 5-STEP WORKFLOW AS SHOWN IN IMAGES */}
       {/* ============================================================== */}
       {isSlideDrawerOpen && selectedPatient && (
-        <View style={styles.slideDrawerOverlay}>
+        <View style={styles.slideDrawerOverlay} className="doctor-slide-drawer-overlay">
           {/* Dimmed Background Overlay */}
           <TouchableOpacity
             style={styles.slideDrawerBackdrop}
@@ -910,7 +910,7 @@ export default function DoctorFollowUpsPage({
           />
 
           {/* Right Slide Sheet (Extends from right to center of screen: 50% width) */}
-          <View style={styles.slideDrawerSheet}>
+          <View style={styles.slideDrawerSheet} className="doctor-slide-drawer-sheet">
             {/* Top Bar with Close '✕' Button */}
             <View style={styles.drawerTopBar}>
               <View style={styles.drawerTitleGroup}>
@@ -994,6 +994,7 @@ export default function DoctorFollowUpsPage({
             {/* Scrollable Step Content Body */}
             <ScrollView
               style={styles.stepScrollBody}
+              className="doctor-drawer-scroll-body"
               contentContainerStyle={styles.stepScrollContent}
               showsVerticalScrollIndicator={false}
             >
@@ -1788,7 +1789,7 @@ export default function DoctorFollowUpsPage({
             </ScrollView>
 
             {/* Static Action Bar at Bottom of Slide Drawer */}
-            <View style={styles.drawerBottomBar}>
+            <View style={styles.drawerBottomBar} className="doctor-drawer-static-footer">
               {currentStep > 1 && (
                 <TouchableOpacity
                   style={styles.prevStepBtn}
@@ -2500,10 +2501,13 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
+    height: '100%',
+    maxHeight: '100%',
     zIndex: 9999,
     display: 'flex',
     flexDirection: 'row',
     justifyContent: 'flex-end',
+    overflow: 'hidden',
   },
   slideDrawerBackdrop: {
     position: 'absolute',
@@ -2520,6 +2524,7 @@ const styles = StyleSheet.create({
     minWidth: 540,
     maxWidth: 840,
     height: '100%',
+    maxHeight: '100%',
     backgroundColor: '#FFFFFF',
     borderTopLeftRadius: 24,
     borderBottomLeftRadius: 24,
@@ -2544,6 +2549,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#F1F5F9',
     backgroundColor: '#FFFFFF',
+    flexShrink: 0,
   },
   drawerTitleGroup: {},
   drawerTitleText: {
@@ -2575,6 +2581,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#F8FAFC',
     borderBottomWidth: 1,
     borderBottomColor: '#E2E8F0',
+    flexShrink: 0,
   },
   stepperLine: {
     flex: 1,
@@ -2631,6 +2638,8 @@ const styles = StyleSheet.create({
   /* Step Content Scroll Area */
   stepScrollBody: {
     flex: 1,
+    minHeight: 0,
+    flexShrink: 1,
   },
   stepScrollContent: {
     padding: 20,
@@ -3342,6 +3351,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
+    flexShrink: 0,
   },
   prevStepBtn: {
     flexDirection: 'row',

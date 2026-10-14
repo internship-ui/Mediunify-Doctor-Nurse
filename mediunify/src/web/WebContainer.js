@@ -4,6 +4,7 @@ import { useInjectWebStyles } from './WebStyles';
 import { setupWebAlertPolyfill } from './WebAlertPolyfill';
 import MobileAppWebWrapper from './MobileAppWebWrapper';
 import WebLandingPage from './landing/WebLandingPage';
+import RoleSelectionPage from './auth/RoleSelectionPage';
 import DoctorAuthPage from './auth/DoctorAuthPage';
 import NurseAuthPage from './auth/NurseAuthPage';
 import DoctorWebPortal from './doctor/DoctorWebPortal';
@@ -11,7 +12,7 @@ import NurseWebPortal from './nurse/NurseWebPortal';
 
 /**
  * Robust detection of whether the current browser session is in Desktop Web mode
- * or Mobile/Tablet App interface mode.
+ * or Mobile / Tablet App interface mode.
  *
  * Requirements:
  * 1. Phone (standard mobile view, "Desktop site" unchecked):
@@ -29,10 +30,32 @@ import NurseWebPortal from './nurse/NurseWebPortal';
 function detectIsDesktopMode() {
   if (typeof window === 'undefined') return true;
 
-  // 1. Google Chrome / Chromium Client Hints API
-  // In Chrome on phones and tablets, toggling "Desktop site" sets
-  // navigator.userAgentData.mobile to false and forces layout viewport to 980px+.
-  // When "Desktop site" is UNCHECKED, navigator.userAgentData.mobile is true.
+  const width = window.innerWidth;
+
+  // 1. If screen width is standard mobile phone width (< 768px):
+  // Always render App Application UI interface
+  if (width < 768) {
+    return false;
+  }
+
+  // 2. Tablet detection:
+  // User requirement: "for tab responsive as app application ui interface"
+  const ua = (typeof navigator !== 'undefined' ? navigator.userAgent : '') || '';
+  const isIPad = /iPad/i.test(ua) || (/Macintosh/i.test(ua) && typeof navigator !== 'undefined' && navigator.maxTouchPoints > 1);
+  const isAndroidTablet = /Android/i.test(ua) && !/Mobile/i.test(ua);
+  const isGenericTablet = /Tablet|Silk/i.test(ua);
+  const isTablet = isIPad || isAndroidTablet || isGenericTablet;
+
+  // Tablet in standard mode (width < 1180):
+  // Renders App Application UI interface (responsive on tab)
+  if (isTablet && width < 1180) {
+    return false;
+  }
+
+  // 3. Google Chrome / Chromium Client Hints API
+  // In Chrome on phones and tablets:
+  // - When "Desktop site" is UNCHECKED: navigator.userAgentData.mobile is true.
+  // - When "Desktop site" is CHECKED: navigator.userAgentData.mobile is false, and width is >= 980px.
   if (
     typeof navigator !== 'undefined' &&
     navigator.userAgentData &&
@@ -41,28 +64,17 @@ function detectIsDesktopMode() {
     if (navigator.userAgentData.mobile) {
       return false; // Normal phone / tab app mode
     }
-    return window.innerWidth >= 900; // Desktop site enabled or PC
+    return width >= 900; // Desktop site enabled or PC
   }
 
-  // 2. Fallback for iOS Safari / other engines
-  const ua = (typeof navigator !== 'undefined' ? navigator.userAgent : '') || '';
+  // 4. Fallback for mobile user-agents (Safari iOS, Firefox mobile)
   const isMobileUA = /Mobile|iPhone|iPod/i.test(ua);
-  const isTabletUA = /iPad|Tablet|Android(?!.*Mobile)/i.test(ua);
-
-  // Normal mobile phone without desktop site has innerWidth < 600 (typically 360-430px)
-  if (isMobileUA && window.innerWidth < 900) {
+  if (isMobileUA && width < 900) {
     return false;
   }
 
-  // Normal tablet in portrait without desktop site has innerWidth < 900 (typically 768-834px)
-  if (isTabletUA && window.innerWidth < 900) {
-    return false;
-  }
-
-  // Viewport threshold:
-  // Mobile phone and tablet standard viewports are < 900px.
-  // When "Desktop site" is enabled on phone/tab, layout viewport is forced to 980px or higher.
-  return window.innerWidth >= 900;
+  // 5. Default threshold for desktop PC workstation
+  return width >= 900;
 }
 
 export default function WebContainer({ children }) {
@@ -78,7 +90,7 @@ export default function WebContainer({ children }) {
   const [isDesktopMode, setIsDesktopMode] = useState(detectIsDesktopMode);
 
   // Web Route State:
-  // 'landing' | 'doctor-login' | 'doctor-register' | 'doctor-portal' | 'nurse-login' | 'nurse-register' | 'nurse-portal'
+  // 'landing' | 'role-signin' | 'role-signup' | 'doctor-login' | 'doctor-register' | 'doctor-portal' | 'nurse-login' | 'nurse-register' | 'nurse-portal'
   const [webRoute, setWebRoute] = useState(() => {
     if (typeof window !== 'undefined') {
       const hash = (window.location.hash || '').toLowerCase();
@@ -86,6 +98,8 @@ export default function WebContainer({ children }) {
       if (hash.includes('nurse-portal') || hash.includes('nurse')) return 'nurse-portal';
       if (hash.includes('doctor-login')) return 'doctor-login';
       if (hash.includes('nurse-login')) return 'nurse-login';
+      if (hash.includes('role-signin')) return 'role-signin';
+      if (hash.includes('role-signup')) return 'role-signup';
     }
     return 'landing';
   });
@@ -105,7 +119,7 @@ export default function WebContainer({ children }) {
     };
   }, []);
 
-  // When on phone or tablet in standard mobile view (desktop site unchecked):
+  // When on phone or tablet in standard mobile view (Desktop site unchecked):
   // Directly render the app application UI interface
   if (!isDesktopMode) {
     return (
@@ -123,12 +137,18 @@ export default function WebContainer({ children }) {
     switch (webRoute) {
       case 'landing':
         return <WebLandingPage onNavigate={setWebRoute} />;
+      case 'role-signin':
+        return <RoleSelectionPage mode="signin" onNavigate={setWebRoute} />;
+      case 'role-signup':
+        return <RoleSelectionPage mode="signup" onNavigate={setWebRoute} />;
       case 'doctor-login':
+        return <DoctorAuthPage initialMode="signin" onNavigate={setWebRoute} />;
       case 'doctor-register':
-        return <DoctorAuthPage onNavigate={setWebRoute} />;
+        return <DoctorAuthPage initialMode="signup" onNavigate={setWebRoute} />;
       case 'nurse-login':
+        return <NurseAuthPage initialMode="signin" onNavigate={setWebRoute} />;
       case 'nurse-register':
-        return <NurseAuthPage onNavigate={setWebRoute} />;
+        return <NurseAuthPage initialMode="signup" onNavigate={setWebRoute} />;
       case 'doctor-portal':
         return <DoctorWebPortal onNavigateHome={() => setWebRoute('landing')} />;
       case 'nurse-portal':
