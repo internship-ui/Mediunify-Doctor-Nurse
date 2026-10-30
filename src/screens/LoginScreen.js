@@ -1,3 +1,4 @@
+import { SafeAreaView } from 'react-native-safe-area-context';
 import React, { useState } from 'react';
 import {
   View,
@@ -6,7 +7,6 @@ import {
   Image,
   TouchableOpacity,
   Dimensions,
-  SafeAreaView,
   StatusBar,
   ScrollView,
   KeyboardAvoidingView,
@@ -17,26 +17,43 @@ import { Ionicons } from '@expo/vector-icons';
 import AppInput from '../components/AppInput';
 import { colors, radius, typography } from '../theme/colors';
 import { useAuth } from '../context/AuthContext';
+import { doctor } from '../data/mockData';
 
 const { width } = Dimensions.get('window');
 
 export default function LoginScreen({ navigation, route }) {
   const { login } = useAuth();
-  const [emailOrPhone, setEmailOrPhone] = useState('');
-  const [password, setPassword] = useState('');
+  const [emailOrPhone, setEmailOrPhone] = useState('dr.ananya@mediunify.com');
+  const [password, setPassword] = useState('Doctor@2026');
   const [rememberMe, setRememberMe] = useState(false);
   const [loading, setLoading] = useState(false);
   const justRegistered = route?.params?.justRegistered;
 
   const handleLogin = async () => {
-    if (!emailOrPhone.trim() || !password.trim()) {
-      Alert.alert('Required Fields', 'Please enter your email or phone number and password.');
-      return;
-    }
     setLoading(true);
-    await login({ email: emailOrPhone, password });
-    setLoading(false);
-    // AuthContext flips isAuthenticated -> RootNavigator swaps to MainTabs automatically
+    try {
+      const demoEmail = (emailOrPhone && emailOrPhone.trim()) || 'dr.ananya@mediunify.com';
+      const demoPass = (password && password.trim()) || 'Doctor@2026';
+
+      if (doctor) {
+        doctor.email = demoEmail;
+      }
+
+      await login({ email: demoEmail, password: demoPass });
+
+      // Direct to Doctor Home Page (MainTabs / DashboardScreen)
+      try {
+        navigation.navigate('MainTabs');
+      } catch (err) {
+        try {
+          navigation.navigate('DashboardScreen');
+        } catch (e2) {}
+      }
+    } catch (e) {
+      // Fallback bypass for demo
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -56,7 +73,19 @@ export default function LoginScreen({ navigation, route }) {
           <View style={styles.topBar}>
             <TouchableOpacity
               style={styles.backBtn}
-              onPress={() => navigation.goBack()}
+              onPress={() => {
+                if (navigation.canGoBack()) {
+                  navigation.goBack();
+                } else {
+                  try {
+                    navigation.navigate('RoleSelectionScreen');
+                  } catch (e) {
+                    try {
+                      navigation.navigate('RoleSelection');
+                    } catch (err) {}
+                  }
+                }
+              }}
               activeOpacity={0.7}
             >
               <Ionicons name="arrow-back" size={24} color="#08317C" style={{ top: 35 }} />
@@ -228,6 +257,65 @@ const styles = StyleSheet.create({
     color: '#64748B',
     marginTop: 6,
     textAlign: 'center',
+  },
+
+  /* Profile Claim Section */
+  claimSectionCard: {
+    width: '100%',
+    backgroundColor: '#F0FDF9',
+    borderRadius: 14,
+    borderWidth: 1.2,
+    borderColor: '#A7F3D0',
+    padding: 14,
+    marginTop: 18,
+    marginBottom: 6,
+  },
+  claimHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
+    marginBottom: 6,
+  },
+  claimHeaderTitle: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#065F46',
+    letterSpacing: -0.2,
+  },
+  claimDescriptionText: {
+    fontSize: 12,
+    color: '#334155',
+    lineHeight: 17,
+    marginBottom: 12,
+  },
+  claimButtonTeal: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 7,
+    backgroundColor: '#00B894',
+    paddingVertical: 11,
+    paddingHorizontal: 16,
+    borderRadius: 10,
+    shadowColor: '#00B894',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  claimButtonText: {
+    fontSize: 13.5,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    letterSpacing: -0.2,
+  },
+  thinTealLine: {
+    width: '100%',
+    height: 1.5,
+    backgroundColor: '#00B894',
+    marginTop: 12,
+    marginBottom: 4,
+    borderRadius: 1,
   },
 
   /* Success banner */

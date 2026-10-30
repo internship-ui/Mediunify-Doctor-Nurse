@@ -663,7 +663,7 @@ export default function RescheduleModal({
                   hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                   style={styles.closeCircleBtn}
                 >
-                  <Ionicons name="close" size={20} color="#FFFFFF" />
+                  <Ionicons name="close" size={20} color="#081E3E" />
                 </TouchableOpacity>
               </View>
 
@@ -898,29 +898,31 @@ const styles = StyleSheet.create({
     elevation: 9,
   },
   modalNavyHeader: {
-    backgroundColor: '#071E42',
+    backgroundColor: '#FFFFFF', // Header do white
     paddingHorizontal: 20,
     paddingTop: 18,
     paddingBottom: 16,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
   },
   modalNavyHeaderTitle: {
     fontSize: 18,
     fontWeight: '800',
-    color: '#FFFFFF',
+    color: '#081E3E',
   },
   modalNavyHeaderSubtitle: {
     fontSize: 12,
-    color: '#94A3B8',
+    color: '#64748B',
     marginTop: 2,
   },
   closeCircleBtn: {
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    backgroundColor: '#F1F5F9',
     alignItems: 'center',
     justifyContent: 'center',
   },

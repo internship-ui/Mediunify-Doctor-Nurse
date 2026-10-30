@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Modal } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Modal, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { patients } from '../../data/mockData';
 
@@ -122,19 +122,20 @@ export default function DoctorAppointmentsPage({
   // ========================================================================
   const [inPersonStep, setInPersonStep] = useState(1);
 
-  // Step 2: Consult Notes
+  // Step 2: Consult Notes (Only ONE single field with typing and Add On button)
+  const [inPersonConsultNotes, setInPersonConsultNotes] = useState('Patient evaluated for acute complaints. Chest clear bilaterally, pharynx mildly congested. Advised warm fluids, hydration, and adequate rest.');
   const [inPersonSymptoms, setInPersonSymptoms] = useState('Mild fever and dry persistent cough for 3 days');
   const [inPersonDiagnosis, setInPersonDiagnosis] = useState('Acute Upper Respiratory Tract Infection (URTI)');
   const [inPersonExamNotes, setInPersonExamNotes] = useState('Chest clear bilaterally. Pharynx mildly congested. No wheezing. Normal heart sounds S1, S2.');
   const [inPersonAdvice, setInPersonAdvice] = useState('Warm saline gargles twice daily. Plenty of warm fluids. Adequate rest.');
 
-  // Step 3: Prescriptions
+  // Step 3: Prescriptions (Separated Search Box & Manual Entry Box)
   const [inPersonPrescriptions, setInPersonPrescriptions] = useState([
     {
       id: 'med-1',
       name: 'Paracetamol 650mg (Dolo)',
       dosage: '1 Tablet',
-      freq: 'TDS (Thrice daily)',
+      freq: '1 daily',
       duration: '5 days',
       timing: { morning: true, afternoon: true, night: true, food: 'after' },
     },
@@ -142,36 +143,63 @@ export default function DoctorAppointmentsPage({
       id: 'med-2',
       name: 'Pantoprazole 40mg (Pan-40)',
       dosage: '1 Tablet',
-      freq: 'OD (Once daily)',
+      freq: '1 daily',
       duration: '5 days',
       timing: { morning: true, afternoon: false, night: false, food: 'before' },
     },
   ]);
   const [medSearchQuery, setMedSearchQuery] = useState('');
   const [medDropdownVisible, setMedDropdownVisible] = useState(false);
+
+  // Search Medicine Card state
+  const [searchMedSelectedName, setSearchMedSelectedName] = useState('');
+  const [searchMedDosage, setSearchMedDosage] = useState('1 Tablet');
+  const [searchMedFreq, setSearchMedFreq] = useState('1 daily');
+  const [searchMedDuration, setSearchMedDuration] = useState('5 days');
+  const [searchMedMorning, setSearchMedMorning] = useState(true);
+  const [searchMedAfternoon, setSearchMedAfternoon] = useState(false);
+  const [searchMedNight, setSearchMedNight] = useState(true);
+  const [searchMedFoodTiming, setSearchMedFoodTiming] = useState('after'); // 'after' | 'before'
+
+  // Manual Medicine Card state
   const [manualMedName, setManualMedName] = useState('');
   const [manualMedDosage, setManualMedDosage] = useState('1 Tablet');
-  const [manualMedFreq, setManualMedFreq] = useState('BD (Twice daily)');
+  const [manualMedFreq, setManualMedFreq] = useState('1 daily');
   const [manualMedDuration, setManualMedDuration] = useState('5 days');
   const [manualMedMorning, setManualMedMorning] = useState(true);
   const [manualMedAfternoon, setManualMedAfternoon] = useState(false);
   const [manualMedNight, setManualMedNight] = useState(true);
   const [manualMedFoodTiming, setManualMedFoodTiming] = useState('after'); // 'after' | 'before'
 
-  // Step 4: Test Requirements
+  // Schedule Timings Pop-up Modal state
+  const [timingModalVisible, setTimingModalVisible] = useState(false);
+  const [timingModalTarget, setTimingModalTarget] = useState('search'); // 'search' | 'manual'
+  const [timingPopMorning, setTimingPopMorning] = useState(true);
+  const [timingPopAfternoon, setTimingPopAfternoon] = useState(false);
+  const [timingPopNight, setTimingPopNight] = useState(true);
+  const [timingPopFood, setTimingPopFood] = useState('after');
+
+  // Step 4: Test Requirements (Separated Search Box & Manual Entry Box)
   const [inPersonTests, setInPersonTests] = useState([
     {
       id: 't-1',
       name: 'Complete Blood Count (CBC)',
-      instructions: 'Random / No fasting needed',
+      instructions: 'fasting 10 hrs',
       notes: 'Check TLC and platelet count',
     },
   ]);
   const [testSearchQuery, setTestSearchQuery] = useState('');
   const [testDropdownVisible, setTestDropdownVisible] = useState(false);
+
+  // Search Test Card state
+  const [searchTestSelectedName, setSearchTestSelectedName] = useState('');
+  const [searchTestPrep, setSearchTestPrep] = useState('fasting 10 hrs');
+  const [searchTestInstructions, setSearchTestInstructions] = useState('Routine processing');
+
+  // Manual Test Card state
   const [manualTestName, setManualTestName] = useState('');
-  const [manualTestInstructions, setManualTestInstructions] = useState('Random / No fasting needed');
-  const [manualTestNotes, setManualTestNotes] = useState('');
+  const [manualTestPrep, setManualTestPrep] = useState('fasting 10 hrs');
+  const [manualTestInstructions, setManualTestInstructions] = useState('Routine processing');
 
   // Step 4: Follow-up Date & Time Modal
   const [followUpModalVisible, setFollowUpModalVisible] = useState(false);
@@ -766,25 +794,14 @@ export default function DoctorAppointmentsPage({
   const isAccepted = selectedAppointment?.status === 'Confirmed';
 
   // Actions
-  // Click Accept -> pop-up -> click OK -> THEN right side slide shows!
+  // Click Accept -> immediately confirm & direct the right side panel inside at Step 1
   const handleAccept = (id) => {
     const targetId = id || selectedAppointment?.id;
-    const apt = appointments.find(a => a.id === targetId);
     setAppointments(prev => prev.map(a => (a.id === targetId ? { ...a, status: 'Confirmed' } : a)));
     setSelectedAppointmentId(targetId);
-
-    // Show theme-matched pop-up in center of screen
-    // When user clicks OK, open the right slide drawer at Step 1!
-    showThemeAlert(
-      'Appointment Accepted',
-      `Consultation with ${apt?.name || 'patient'} has been confirmed.`,
-      'checkmark-circle',
-      () => {
-        // Open the right slide drawer extending till center of screen at Step 1!
-        setInPersonStep(1);
-        setIsSlideDrawerOpen(true);
-      }
-    );
+    // Open the right slide drawer extending till center of screen at Step 1!
+    setInPersonStep(1);
+    setIsSlideDrawerOpen(true);
   };
 
   const handleStartConsultationAction = () => {
@@ -903,15 +920,74 @@ export default function DoctorAppointmentsPage({
     );
   };
 
-  // Helper to add medicine
-  const handleAddMedicine = () => {
-    const trimmed = manualMedName.trim();
+  // Helper to open Schedule Timings Pop-up modal
+  const handleOpenTimingModal = (target = 'search') => {
+    setTimingModalTarget(target);
+    if (target === 'search') {
+      setTimingPopMorning(searchMedMorning);
+      setTimingPopAfternoon(searchMedAfternoon);
+      setTimingPopNight(searchMedNight);
+      setTimingPopFood(searchMedFoodTiming);
+    } else {
+      setTimingPopMorning(manualMedMorning);
+      setTimingPopAfternoon(manualMedAfternoon);
+      setTimingPopNight(manualMedNight);
+      setTimingPopFood(manualMedFoodTiming);
+    }
+    setTimingModalVisible(true);
+  };
+
+  const handleSaveTimingModal = () => {
+    if (timingModalTarget === 'search') {
+      setSearchMedMorning(timingPopMorning);
+      setSearchMedAfternoon(timingPopAfternoon);
+      setSearchMedNight(timingPopNight);
+      setSearchMedFoodTiming(timingPopFood);
+    } else {
+      setManualMedMorning(timingPopMorning);
+      setManualMedAfternoon(timingPopAfternoon);
+      setManualMedNight(timingPopNight);
+      setManualMedFoodTiming(timingPopFood);
+    }
+    setTimingModalVisible(false);
+  };
+
+  // Helper to add medicine from SEARCH card
+  const handleAddSearchMedicine = () => {
+    const trimmed = searchMedSelectedName.trim();
     if (!trimmed) {
-      showThemeAlert('Medicine Name Required', 'Please type or select a medicine name before adding to prescription.', 'alert-circle');
+      showThemeAlert('Medicine Required', 'Please search and select a medicine from the library before adding.', 'alert-circle');
       return;
     }
     const newMed = {
-      id: `med-${Date.now()}`,
+      id: `med-s-${Date.now()}`,
+      name: trimmed,
+      dosage: searchMedDosage,
+      freq: searchMedFreq,
+      duration: searchMedDuration,
+      timing: {
+        morning: searchMedMorning,
+        afternoon: searchMedAfternoon,
+        night: searchMedNight,
+        food: searchMedFoodTiming,
+      },
+    };
+    setInPersonPrescriptions(prev => [...prev, newMed]);
+    setSearchMedSelectedName('');
+    setMedSearchQuery('');
+    setMedDropdownVisible(false);
+    showThemeAlert('Medicine Added', `"${trimmed}" added to prescription.`, 'checkmark-circle');
+  };
+
+  // Helper to add medicine from MANUAL entry card
+  const handleAddManualMedicine = () => {
+    const trimmed = manualMedName.trim();
+    if (!trimmed) {
+      showThemeAlert('Medicine Name Required', 'Please type a medicine name before adding to prescription.', 'alert-circle');
+      return;
+    }
+    const newMed = {
+      id: `med-m-${Date.now()}`,
       name: trimmed,
       dosage: manualMedDosage,
       freq: manualMedFreq,
@@ -925,32 +1001,49 @@ export default function DoctorAppointmentsPage({
     };
     setInPersonPrescriptions(prev => [...prev, newMed]);
     setManualMedName('');
-    setMedSearchQuery('');
-    setMedDropdownVisible(false);
+    showThemeAlert('Medicine Added', `"${trimmed}" added to prescription.`, 'checkmark-circle');
   };
 
   const handleDeleteMedicine = (id) => {
     setInPersonPrescriptions(prev => prev.filter(m => m.id !== id));
   };
 
-  // Helper to add test
-  const handleAddTest = () => {
-    const trimmed = manualTestName.trim();
+  // Helper to add test from SEARCH card
+  const handleAddSearchTest = () => {
+    const trimmed = searchTestSelectedName.trim();
     if (!trimmed) {
-      showThemeAlert('Test Name Required', 'Please type or select a lab investigation name before adding.', 'alert-circle');
+      showThemeAlert('Test Required', 'Please search and select a test from the library before adding.', 'alert-circle');
       return;
     }
     const newTest = {
-      id: `t-${Date.now()}`,
+      id: `t-s-${Date.now()}`,
       name: trimmed,
-      instructions: manualTestInstructions,
-      notes: manualTestNotes.trim() || 'Routine evaluation',
+      instructions: searchTestPrep,
+      notes: searchTestInstructions.trim() || 'Routine processing',
+    };
+    setInPersonTests(prev => [...prev, newTest]);
+    setSearchTestSelectedName('');
+    setTestSearchQuery('');
+    setTestDropdownVisible(false);
+    showThemeAlert('Test Added', `"${trimmed}" added to test requirements.`, 'checkmark-circle');
+  };
+
+  // Helper to add test from MANUAL entry card
+  const handleAddManualTest = () => {
+    const trimmed = manualTestName.trim();
+    if (!trimmed) {
+      showThemeAlert('Test Name Required', 'Please type a test or investigation name before adding.', 'alert-circle');
+      return;
+    }
+    const newTest = {
+      id: `t-m-${Date.now()}`,
+      name: trimmed,
+      instructions: manualTestPrep,
+      notes: manualTestInstructions.trim() || 'Routine processing',
     };
     setInPersonTests(prev => [...prev, newTest]);
     setManualTestName('');
-    setTestSearchQuery('');
-    setManualTestNotes('');
-    setTestDropdownVisible(false);
+    showThemeAlert('Test Added', `"${trimmed}" added to test requirements.`, 'checkmark-circle');
   };
 
   const handleDeleteTest = (id) => {
@@ -1375,13 +1468,35 @@ export default function DoctorAppointmentsPage({
         <View style={{ height: 40 }} />
       </ScrollView>
 
+      {/* Slide Drawer styling and caramel scrollbars are centrally managed in WebStyles.js */}
+
       {/* ============================================================== */}
       {/* 5. RIGHT SIDE SLIDE PAGE POP-UP DRAWER (AS SHOWN IN IMAGE)      */}
       {/* EXTENDS TILL CENTER OF SCREEN (50% WIDTH) WITH DIMMED BACKDROP  */}
       {/* ONLY OPENS AFTER CLICKING OK OR EXPLICITLY VIEWING DOSSIER!    */}
       {/* ============================================================== */}
       {isSlideDrawerOpen && selectedAppointment && (
-        <View style={styles.slideDrawerOverlay}>
+        <View
+          id="doctor-slide-drawer-overlay"
+          nativeID="doctor-slide-drawer-overlay"
+          testID="doctor-slide-drawer-overlay"
+          style={[
+            styles.slideDrawerOverlay,
+            Platform.OS === 'web' && {
+              position: 'fixed',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              width: '100vw',
+              height: '100vh',
+              margin: 0,
+              padding: 0,
+              zIndex: 999999,
+            },
+          ]}
+          className="doctor-slide-drawer-overlay"
+        >
           {/* Dimmed backdrop area - Dims the entire background & highlights drawer */}
           <TouchableOpacity
             style={styles.slideDrawerBackdrop}
@@ -1389,8 +1504,59 @@ export default function DoctorAppointmentsPage({
             activeOpacity={1}
           />
 
-          {/* Slide-in Sheet from Right edge: Width extends till center of screen */}
-          <View style={styles.slideDrawerSheet}>
+          {Platform.OS === 'web' && (
+            <style>{`
+              @keyframes slideDrawerFromRightWeb {
+                0% {
+                  transform: translateX(100%);
+                  opacity: 0.95;
+                }
+                100% {
+                  transform: translateX(0);
+                  opacity: 1;
+                }
+              }
+              .doctor-slide-drawer-sheet {
+                animation: slideDrawerFromRightWeb 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards !important;
+                box-sizing: border-box !important;
+              }
+              .doctor-drawer-static-footer {
+                box-sizing: border-box !important;
+              }
+            `}</style>
+          )}
+
+          {/* Slide-in Sheet from Right edge: Width extends till center of screen (50vw) & height till taskbar (100vh) */}
+          <View
+            id="doctor-slide-drawer-sheet"
+            nativeID="doctor-slide-drawer-sheet"
+            testID="doctor-slide-drawer-sheet"
+            style={[
+              styles.slideDrawerSheet,
+              Platform.OS === 'web' && {
+                position: 'fixed',
+                top: 0,
+                bottom: 0,
+                right: 0,
+                left: '50vw',
+                width: '50vw',
+                minWidth: '50vw',
+                maxWidth: '50vw',
+                height: '100%',
+                maxHeight: '100vh',
+                margin: 0,
+                padding: 0,
+                borderTopLeftRadius: 16,
+                borderBottomLeftRadius: 0,
+                borderTopRightRadius: 0,
+                borderBottomRightRadius: 0,
+                zIndex: 1000000,
+                boxSizing: 'border-box',
+                animation: 'slideDrawerFromRightWeb 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards',
+              },
+            ]}
+            className="doctor-slide-drawer-sheet"
+          >
             {/* Top Navigation Row matching image: ∨ ∧ counter ⋮ ✕ */}
             <View style={styles.drawerTopNavRow}>
               <View style={styles.drawerArrowsGroup}>
@@ -1518,7 +1684,7 @@ export default function DoctorAppointmentsPage({
 
             {/* STEP 1: PATIENT DOSSIER & STATIC ACTION BUTTONS */}
             {(!isInPerson || inPersonStep === 1) && (
-              <View style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+              <View style={styles.drawerStepView} className="doctor-drawer-step-view">
                 {/* Dark Navy Workstation Header */}
                 <View style={styles.wsHeader}>
               <View style={styles.wsHeaderTopRow}>
@@ -1547,9 +1713,14 @@ export default function DoctorAppointmentsPage({
 
             {/* Scrollable Clinical Dossier Content */}
             <ScrollView
+              id="doctor-drawer-scroll-body-1"
+              nativeID="doctor-drawer-scroll-body-1"
+              testID="doctor-drawer-scroll-body-1"
               style={styles.wsScrollBody}
+              className="doctor-drawer-scroll-body"
               contentContainerStyle={styles.wsScrollContent}
-              showsVerticalScrollIndicator={false}
+              showsVerticalScrollIndicator={true}
+              persistentScrollbar={true}
             >
               {/* Status Banner */}
               {isInPerson ? (
@@ -1750,7 +1921,7 @@ export default function DoctorAppointmentsPage({
               <View style={styles.detailSectionCard}>
                 <View style={styles.cardHeaderRowCustom}>
                   <View style={styles.cardHeaderIcon}>
-                    <Ionicons name="heart-pulse-outline" size={16} color="#081E3E" />
+                    <Ionicons name="pulse-outline" size={16} color="#081E3E" />
                   </View>
                   <Text style={styles.cardHeaderTitle}>Patient Vitals</Text>
                 </View>
@@ -2070,7 +2241,7 @@ export default function DoctorAppointmentsPage({
 
             {/* STATIC BOTTOM ACTION BUTTONS */}
             {/* Accepted, Reschedule, Start Consult (In-Person) / Join Call (Video) */}
-            <View style={styles.wsStaticFooter}>
+            <View style={styles.wsStaticFooter} className="doctor-drawer-static-footer">
               {/* Accept / Accepted Button */}
               <TouchableOpacity
                 style={[
@@ -2126,7 +2297,7 @@ export default function DoctorAppointmentsPage({
 
         {/* STEP 2: CONSULT NOTES SLIDE PAGE */}
         {isInPerson && inPersonStep === 2 && (
-          <View style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+          <View style={styles.drawerStepView} className="doctor-drawer-step-view">
             <View style={styles.stepHeader}>
               <View style={styles.stepHeaderTopRow}>
                 <TouchableOpacity
@@ -2147,7 +2318,16 @@ export default function DoctorAppointmentsPage({
               </Text>
             </View>
 
-            <ScrollView style={styles.wsScrollBody} contentContainerStyle={styles.wsScrollContent} showsVerticalScrollIndicator={false}>
+            <ScrollView
+              id="doctor-drawer-scroll-body-2"
+              nativeID="doctor-drawer-scroll-body-2"
+              testID="doctor-drawer-scroll-body-2"
+              style={styles.wsScrollBody}
+              className="doctor-drawer-scroll-body"
+              contentContainerStyle={styles.wsScrollContent}
+              showsVerticalScrollIndicator={true}
+              persistentScrollbar={true}
+            >
               {/* Patient Brief Strip */}
               <View style={styles.patientBriefStrip}>
                 <View style={styles.briefAvatar}>
@@ -2164,139 +2344,74 @@ export default function DoctorAppointmentsPage({
                 </View>
               </View>
 
-              {/* Card 1: Symptoms & Chief Complaints */}
+              {/* SINGLE FIELD: Heading "Consult Notes", Down that typing, and "Add On" button */}
               <View style={styles.stepSectionCard}>
                 <View style={styles.stepCardHeader}>
-                  <Ionicons name="chatbubble-ellipses-outline" size={16} color="#081E3E" />
-                  <Text style={styles.stepCardTitle}>Chief Complaints & Symptoms</Text>
+                  <Ionicons name="document-text-outline" size={17} color="#081E3E" />
+                  <Text style={styles.stepCardTitle}>Consult Notes</Text>
                 </View>
-                <TextInput
-                  style={styles.stepInputMultiline}
-                  multiline
-                  numberOfLines={2}
-                  placeholder="Type patient symptoms e.g. Fever, persistent cough, headache..."
-                  placeholderTextColor="#94A3B8"
-                  value={inPersonSymptoms}
-                  onChangeText={setInPersonSymptoms}
-                />
-                <Text style={styles.quickChipLabel}>Quick Symptoms:</Text>
-                <View style={styles.quickChipsWrap}>
-                  {['Fever', 'Dry Cough', 'Sore Throat', 'Headache', 'Body Aches', 'Acidity', 'Chest Congestion', 'Fatigue'].map((chip) => (
-                        <TouchableOpacity
-                      key={chip}
-                      style={styles.quickChipItem}
-                      onPress={() => {
-                        setInPersonSymptoms(prev => (prev ? `${prev}, ${chip}` : chip));
-                      }}
-                    >
-                      <Ionicons name="add" size={12} color="#00B894" />
-                      <Text style={styles.quickChipText}>{chip}</Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              </View>
 
-              {/* Card 2: Vitals & Clinical Examination */}
-              <View style={styles.stepSectionCard}>
-                <View style={styles.stepCardHeader}>
-                  <Ionicons name="pulse-outline" size={16} color="#081E3E" />
-                  <Text style={styles.stepCardTitle}>Vitals & Examination Findings</Text>
-                </View>
-                <View style={styles.vitalsRowGrid}>
-                  <View style={styles.vitalMiniBox}>
-                    <Text style={styles.vitalMiniLabel}>BP (mmHg)</Text>
-                    <Text style={styles.vitalMiniVal}>120 / 80</Text>
-                  </View>
-                  <View style={styles.vitalMiniBox}>
-                    <Text style={styles.vitalMiniLabel}>Pulse</Text>
-                    <Text style={styles.vitalMiniVal}>76 bpm</Text>
-                  </View>
-                  <View style={styles.vitalMiniBox}>
-                    <Text style={styles.vitalMiniLabel}>Temp</Text>
-                    <Text style={styles.vitalMiniVal}>98.6 °F</Text>
-                  </View>
-                  <View style={styles.vitalMiniBox}>
-                    <Text style={styles.vitalMiniLabel}>SpO2</Text>
-                    <Text style={styles.vitalMiniVal}>99%</Text>
-                  </View>
-                </View>
+                {/* Multiline Typing Field */}
                 <TextInput
-                  style={[styles.stepInputMultiline, { marginTop: 10 }]}
+                  style={[styles.stepInputMultiline, { minHeight: 150, fontSize: 14, lineHeight: 22 }]}
                   multiline
-                  numberOfLines={2}
-                  placeholder="Physical exam findings: chest clear, heart sounds normal..."
+                  numberOfLines={6}
+                  placeholder="Enter patient consultation notes, clinical evaluation, observations, and advice..."
                   placeholderTextColor="#94A3B8"
-                  value={inPersonExamNotes}
-                  onChangeText={setInPersonExamNotes}
+                  value={inPersonConsultNotes}
+                  onChangeText={setInPersonConsultNotes}
                 />
-              </View>
 
-              {/* Card 3: Clinical Diagnosis */}
-              <View style={styles.stepSectionCard}>
-                <View style={styles.stepCardHeader}>
-                  <Ionicons name="fitness-outline" size={16} color="#081E3E" />
-                  <Text style={styles.stepCardTitle}>Clinical Assessment & Diagnosis</Text>
-                </View>
-                <TextInput
-                  style={styles.stepInputSingle}
-                  placeholder="Enter primary clinical diagnosis..."
-                  placeholderTextColor="#94A3B8"
-                  value={inPersonDiagnosis}
-                  onChangeText={setInPersonDiagnosis}
-                />
-                <Text style={styles.quickChipLabel}>Common Diagnoses:</Text>
-                <View style={styles.quickChipsWrap}>
-                  {[
-                    'Acute URTI / Viral Fever',
-                    'Essential Hypertension',
-                    'Type 2 Diabetes Review',
-                    'Allergic Rhinitis',
-                    'Acute Bronchitis',
-                    'Acid Peptic Disease',
-                  ].map((diag) => (
-                    <TouchableOpacity
-                      key={diag}
-                      style={[
-                        styles.quickChipItem,
-                        inPersonDiagnosis === diag && styles.quickChipItemActive,
-                      ]}
-                      onPress={() => setInPersonDiagnosis(diag)}
-                    >
-                      <Text
-                        style={[
-                          styles.quickChipText,
-                          inPersonDiagnosis === diag && styles.quickChipTextActive,
-                        ]}
+                {/* Quick Add-on Chips */}
+                <View style={{ marginTop: 10 }}>
+                  <Text style={styles.quickChipLabel}>Quick Add-ons:</Text>
+                  <View style={styles.quickChipsWrap}>
+                    {[
+                      'Afebrile, chest clear bilaterally',
+                      'Pharynx congested, no exudate',
+                      'Normal heart sounds S1, S2',
+                      'Advised warm fluids and adequate rest',
+                      'Warm saline gargles twice daily',
+                      'Follow-up review in 5 days',
+                    ].map((chip) => (
+                      <TouchableOpacity
+                        key={chip}
+                        style={styles.quickChipItem}
+                        onPress={() => {
+                          setInPersonConsultNotes(prev => (prev ? `${prev}\n• ${chip}` : `• ${chip}`));
+                        }}
                       >
-                        {diag}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
+                        <Ionicons name="add" size={12} color="#00B894" />
+                        <Text style={styles.quickChipText}>{chip}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
                 </View>
-              </View>
 
-              {/* Card 4: Doctor's Advice & Patient Instructions */}
-              <View style={styles.stepSectionCard}>
-                <View style={styles.stepCardHeader}>
-                  <Ionicons name="information-circle-outline" size={16} color="#081E3E" />
-                  <Text style={styles.stepCardTitle}>Advice & Lifestyle Guidelines</Text>
+                {/* Add On Button */}
+                <View style={{ flexDirection: 'row', justifyContent: 'flex-end', marginTop: 14 }}>
+                  <TouchableOpacity
+                    style={styles.consultAddOnBtn}
+                    onPress={() => {
+                      if (inPersonConsultNotes.trim()) {
+                        showThemeAlert('Notes Added', 'Consultation notes have been recorded and saved.', 'checkmark-circle');
+                      } else {
+                        showThemeAlert('Empty Notes', 'Please enter consultation notes before clicking Add On.', 'alert-circle');
+                      }
+                    }}
+                    activeOpacity={0.85}
+                  >
+                    <Ionicons name="add-circle" size={16} color="#FFFFFF" />
+                    <Text style={styles.consultAddOnBtnText}>Add On</Text>
+                  </TouchableOpacity>
                 </View>
-                <TextInput
-                  style={styles.stepInputMultiline}
-                  multiline
-                  numberOfLines={2}
-                  placeholder="Patient advice, dietary guidelines, fluid intake, rest..."
-                  placeholderTextColor="#94A3B8"
-                  value={inPersonAdvice}
-                  onChangeText={setInPersonAdvice}
-                />
               </View>
 
               <View style={{ height: 20 }} />
             </ScrollView>
 
             {/* Step 2 Static Bottom Footer */}
-            <View style={styles.wsStaticFooter}>
+            <View style={styles.wsStaticFooter} className="doctor-drawer-static-footer">
               <TouchableOpacity
                 style={styles.wsFooterRescheduleBtn}
                 onPress={() => setInPersonStep(1)}
@@ -2321,7 +2436,7 @@ export default function DoctorAppointmentsPage({
 
         {/* STEP 3: PRESCRIBE (RX) SLIDE PAGE */}
         {isInPerson && inPersonStep === 3 && (
-          <View style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+          <View style={styles.drawerStepView} className="doctor-drawer-step-view">
             <View style={styles.stepHeader}>
               <View style={styles.stepHeaderTopRow}>
                 <TouchableOpacity
@@ -2342,7 +2457,16 @@ export default function DoctorAppointmentsPage({
               </Text>
             </View>
 
-            <ScrollView style={styles.wsScrollBody} contentContainerStyle={styles.wsScrollContent} showsVerticalScrollIndicator={false}>
+            <ScrollView
+              id="doctor-drawer-scroll-body-3"
+              nativeID="doctor-drawer-scroll-body-3"
+              testID="doctor-drawer-scroll-body-3"
+              style={styles.wsScrollBody}
+              className="doctor-drawer-scroll-body"
+              contentContainerStyle={styles.wsScrollContent}
+              showsVerticalScrollIndicator={true}
+              persistentScrollbar={true}
+            >
               {/* Patient Brief Strip */}
               <View style={styles.patientBriefStrip}>
                 <View style={styles.briefAvatar}>
@@ -2361,17 +2485,19 @@ export default function DoctorAppointmentsPage({
                 </View>
               </View>
 
-              {/* Card 1: Search Medicine with Dropdown */}
+              {/* Card 1: SEARCH & ADD MEDICINE (SEPARATE CARD BOX) */}
               <View style={[styles.stepSectionCard, { zIndex: 120 }]}>
                 <View style={styles.stepCardHeader}>
-                  <Ionicons name="search-outline" size={16} color="#00B894" />
+                  <Ionicons name="search-outline" size={17} color="#00B894" />
                   <Text style={styles.stepCardTitle}>Search Medicine Library</Text>
                 </View>
-                <View style={styles.searchDropdownContainer}>
-                  <Ionicons name="search" size={16} color="#94A3B8" />
+
+                {/* Search Typing Box: Height Increased */}
+                <View style={[styles.searchDropdownContainer, styles.searchDropdownContainerTall]}>
+                  <Ionicons name="search" size={18} color="#00B894" />
                   <TextInput
-                    style={styles.searchDropdownInput}
-                    placeholder="Search medicine e.g. Paracetamol, Augmentin..."
+                    style={[styles.searchDropdownInput, styles.searchDropdownInputTall]}
+                    placeholder="Search medicines e.g. Paracetamol, Augmentin, Pan-40..."
                     placeholderTextColor="#94A3B8"
                     value={medSearchQuery}
                     onChangeText={(t) => {
@@ -2386,19 +2512,19 @@ export default function DoctorAppointmentsPage({
                   >
                     <Ionicons
                       name={medDropdownVisible ? 'chevron-up' : 'chevron-down'}
-                      size={16}
+                      size={18}
                       color="#081E3E"
                     />
                   </TouchableOpacity>
                 </View>
 
-                {/* Medicine Dropdown Menu */}
+                {/* Medicine Dropdown Menu with Highlighted Select Button */}
                 {medDropdownVisible && (
                   <View style={styles.catalogDropdownMenu}>
-                    <ScrollView style={{ maxHeight: 180 }} nestedScrollEnabled>
+                    <ScrollView style={{ maxHeight: 200 }} nestedScrollEnabled>
                       {filteredMedicines.length === 0 ? (
                         <View style={{ padding: 12, alignItems: 'center' }}>
-                          <Text style={{ fontSize: 12, color: '#94A3B8' }}>No exact match. Enter manually below.</Text>
+                          <Text style={{ fontSize: 12, color: '#94A3B8' }}>No exact match. Use manual entry below.</Text>
                         </View>
                       ) : (
                         filteredMedicines.map((item, idx) => (
@@ -2406,36 +2532,162 @@ export default function DoctorAppointmentsPage({
                             key={idx}
                             style={styles.catalogDropdownItem}
                             onPress={() => {
-                              setManualMedName(item.name);
-                              setManualMedDosage(item.dosage || '1 Tablet');
-                              setManualMedFreq(item.freq || 'BD (Twice daily)');
-                              setManualMedDuration(item.duration || '5 days');
-                              setMedSearchQuery(item.name);
+                              setSearchMedSelectedName(item.name);
+                              setSearchMedDosage(item.dosage || '1 Tablet');
+                              setSearchMedFreq(item.freq || '1 daily');
+                              setSearchMedDuration(item.duration || '5 days');
+                              setMedSearchQuery(''); // Clears search field
                               setMedDropdownVisible(false);
                             }}
                           >
-                            <View style={{ flex: 1 }}>
+                            <View style={{ flex: 1, paddingRight: 8 }}>
                               <Text style={styles.catalogItemTitle}>{item.name}</Text>
                               <Text style={styles.catalogItemSub}>{item.category} · {item.dosage}</Text>
                             </View>
-                            <View style={styles.catalogSelectPill}>
-                              <Text style={styles.catalogSelectPillText}>Select</Text>
-                            </View>
+                            {/* Highlighted Select Button in Dropdown */}
+                            <TouchableOpacity
+                              style={styles.catalogSelectPillHighlighted}
+                              onPress={() => {
+                                setSearchMedSelectedName(item.name);
+                                setSearchMedDosage(item.dosage || '1 Tablet');
+                                setSearchMedFreq(item.freq || '1 daily');
+                                setSearchMedDuration(item.duration || '5 days');
+                                setMedSearchQuery(''); // Clears search field
+                                setMedDropdownVisible(false);
+                              }}
+                            >
+                              <Text style={styles.catalogSelectPillTextHighlighted}>Select</Text>
+                            </TouchableOpacity>
                           </TouchableOpacity>
                         ))
                       )}
                     </ScrollView>
                   </View>
                 )}
+
+                {/* Selected Medicine Reflection & Details */}
+                <View style={{ marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: '#F1F5F9' }}>
+                  <Text style={styles.fieldSubLabel}>Medicine Name</Text>
+                  <TextInput
+                    style={[styles.stepInputSingle, searchMedSelectedName ? styles.stepInputSelected : null]}
+                    placeholder="Selected medicine from search will appear here..."
+                    placeholderTextColor="#94A3B8"
+                    value={searchMedSelectedName}
+                    onChangeText={setSearchMedSelectedName}
+                  />
+
+                  {/* Dosage Name with typing field & add up buttons */}
+                  <View style={{ marginTop: 10 }}>
+                    <Text style={styles.fieldSubLabel}>Dosage Name</Text>
+                    <TextInput
+                      style={styles.stepInputSingle}
+                      placeholder="e.g. 1 Tablet"
+                      placeholderTextColor="#94A3B8"
+                      value={searchMedDosage}
+                      onChangeText={setSearchMedDosage}
+                    />
+                    <View style={styles.quickChipsWrap}>
+                      {['1 Tablet', '2 Tablet', '3 Tablet', '7 Tablet', '1 Capsule', '10 ml'].map((dos) => (
+                        <TouchableOpacity
+                          key={dos}
+                          style={[styles.quickChipItem, searchMedDosage === dos && styles.quickChipItemActive]}
+                          onPress={() => setSearchMedDosage(dos)}
+                        >
+                          <Ionicons name="add" size={12} color={searchMedDosage === dos ? '#FFFFFF' : '#00B894'} />
+                          <Text style={[styles.quickChipText, searchMedDosage === dos && styles.quickChipTextActive]}>{dos}</Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  </View>
+
+                  {/* Frequency with typing field & add up buttons */}
+                  <View style={{ marginTop: 10 }}>
+                    <Text style={styles.fieldSubLabel}>Frequency</Text>
+                    <TextInput
+                      style={styles.stepInputSingle}
+                      placeholder="e.g. 1 daily"
+                      placeholderTextColor="#94A3B8"
+                      value={searchMedFreq}
+                      onChangeText={setSearchMedFreq}
+                    />
+                    <View style={styles.quickChipsWrap}>
+                      {['1 daily', '2 daily', '3 daily', 'OD (Once daily)', 'BD (Twice daily)', 'TDS (Thrice daily)'].map((frq) => (
+                        <TouchableOpacity
+                          key={frq}
+                          style={[styles.quickChipItem, searchMedFreq === frq && styles.quickChipItemActive]}
+                          onPress={() => setSearchMedFreq(frq)}
+                        >
+                          <Ionicons name="add" size={12} color={searchMedFreq === frq ? '#FFFFFF' : '#00B894'} />
+                          <Text style={[styles.quickChipText, searchMedFreq === frq && styles.quickChipTextActive]}>{frq}</Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  </View>
+
+                  {/* Duration with typing field & add up buttons */}
+                  <View style={{ marginTop: 10 }}>
+                    <Text style={styles.fieldSubLabel}>Duration</Text>
+                    <TextInput
+                      style={styles.stepInputSingle}
+                      placeholder="e.g. 5 days"
+                      placeholderTextColor="#94A3B8"
+                      value={searchMedDuration}
+                      onChangeText={setSearchMedDuration}
+                    />
+                    <View style={styles.quickChipsWrap}>
+                      {['3 days', '5 days', '7 days', '10 days', '14 days', '1 month'].map((dur) => (
+                        <TouchableOpacity
+                          key={dur}
+                          style={[styles.quickChipItem, searchMedDuration === dur && styles.quickChipItemActive]}
+                          onPress={() => setSearchMedDuration(dur)}
+                        >
+                          <Ionicons name="add" size={12} color={searchMedDuration === dur ? '#FFFFFF' : '#00B894'} />
+                          <Text style={[styles.quickChipText, searchMedDuration === dur && styles.quickChipTextActive]}>{dur}</Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  </View>
+
+                  {/* Schedule Timings Button -> Opens Pop-up modal */}
+                  <View style={{ marginTop: 12 }}>
+                    <Text style={styles.fieldSubLabel}>Schedule Timings</Text>
+                    <TouchableOpacity
+                      style={styles.scheduleTimingsTriggerBtn}
+                      onPress={() => handleOpenTimingModal('search')}
+                      activeOpacity={0.8}
+                    >
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                        <Ionicons name="alarm-outline" size={16} color="#00B894" />
+                        <Text style={styles.scheduleTimingsTriggerText}>
+                          {[searchMedMorning && 'Morn', searchMedAfternoon && 'Aftern', searchMedNight && 'Night'].filter(Boolean).join(', ') || 'Not set'} · {searchMedFoodTiming === 'after' ? 'After food' : 'Before food'}
+                        </Text>
+                      </View>
+                      <View style={styles.timingChangePill}>
+                        <Text style={styles.timingChangePillText}>Change / Set Timings</Text>
+                      </View>
+                    </TouchableOpacity>
+                  </View>
+
+                  {/* Add to Prescription Button */}
+                  <TouchableOpacity
+                    style={styles.addMedicineActionBtn}
+                    onPress={handleAddSearchMedicine}
+                    activeOpacity={0.88}
+                  >
+                    <Ionicons name="add-circle" size={17} color="#FFFFFF" />
+                    <Text style={styles.addMedicineActionBtnText}>Add to Prescription</Text>
+                  </TouchableOpacity>
+                </View>
               </View>
 
-              {/* Card 2: Manual Medicine Entry */}
+              {/* Card 2: MANUAL MEDICINE ENTRY (SEPARATE CARD BOX) */}
               <View style={styles.stepSectionCard}>
                 <View style={styles.stepCardHeader}>
-                  <Ionicons name="create-outline" size={16} color="#081E3E" />
+                  <Ionicons name="create-outline" size={17} color="#081E3E" />
                   <Text style={styles.stepCardTitle}>Manual Medicine Entry</Text>
                 </View>
 
+                {/* Medicine Name */}
                 <Text style={styles.fieldSubLabel}>Medicine Name</Text>
                 <TextInput
                   style={styles.stepInputSingle}
@@ -2445,116 +2697,102 @@ export default function DoctorAppointmentsPage({
                   onChangeText={setManualMedName}
                 />
 
-                <View style={styles.formRowTwoCol}>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.fieldSubLabel}>Dosage</Text>
-                    <TextInput
-                      style={styles.stepInputSingle}
-                      placeholder="e.g. 1 Tablet"
-                      placeholderTextColor="#94A3B8"
-                      value={manualMedDosage}
-                      onChangeText={setManualMedDosage}
-                    />
-                  </View>
-                  <View style={{ flex: 1, marginLeft: 10 }}>
-                    <Text style={styles.fieldSubLabel}>Frequency</Text>
-                    <TextInput
-                      style={styles.stepInputSingle}
-                      placeholder="e.g. BD (Twice daily)"
-                      placeholderTextColor="#94A3B8"
-                      value={manualMedFreq}
-                      onChangeText={setManualMedFreq}
-                    />
-                  </View>
-                </View>
-
-                <Text style={styles.fieldSubLabel}>Duration</Text>
-                <View style={styles.quickChipsWrap}>
-                  {['3 days', '5 days', '7 days', '14 days', '1 month'].map((dur) => (
-                    <TouchableOpacity
-                      key={dur}
-                      style={[
-                        styles.quickChipItem,
-                        manualMedDuration === dur && styles.quickChipItemActive,
-                      ]}
-                      onPress={() => setManualMedDuration(dur)}
-                    >
-                      <Text
-                        style={[
-                          styles.quickChipText,
-                          manualMedDuration === dur && styles.quickChipTextActive,
-                        ]}
+                {/* Dosage Name with typing field & add up buttons */}
+                <View style={{ marginTop: 10 }}>
+                  <Text style={styles.fieldSubLabel}>Dosage Name</Text>
+                  <TextInput
+                    style={styles.stepInputSingle}
+                    placeholder="e.g. 1 Tablet"
+                    placeholderTextColor="#94A3B8"
+                    value={manualMedDosage}
+                    onChangeText={setManualMedDosage}
+                  />
+                  <View style={styles.quickChipsWrap}>
+                    {['1 Tablet', '2 Tablet', '3 Tablet', '7 Tablet', '1 Capsule', '10 ml'].map((dos) => (
+                      <TouchableOpacity
+                        key={dos}
+                        style={[styles.quickChipItem, manualMedDosage === dos && styles.quickChipItemActive]}
+                        onPress={() => setManualMedDosage(dos)}
                       >
-                        {dur}
+                        <Ionicons name="add" size={12} color={manualMedDosage === dos ? '#FFFFFF' : '#00B894'} />
+                        <Text style={[styles.quickChipText, manualMedDosage === dos && styles.quickChipTextActive]}>{dos}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </View>
+
+                {/* Frequency with typing field & add up buttons */}
+                <View style={{ marginTop: 10 }}>
+                  <Text style={styles.fieldSubLabel}>Frequency</Text>
+                  <TextInput
+                    style={styles.stepInputSingle}
+                    placeholder="e.g. 1 daily"
+                    placeholderTextColor="#94A3B8"
+                    value={manualMedFreq}
+                    onChangeText={setManualMedFreq}
+                  />
+                  <View style={styles.quickChipsWrap}>
+                    {['1 daily', '2 daily', '3 daily', 'OD (Once daily)', 'BD (Twice daily)', 'TDS (Thrice daily)'].map((frq) => (
+                      <TouchableOpacity
+                        key={frq}
+                        style={[styles.quickChipItem, manualMedFreq === frq && styles.quickChipItemActive]}
+                        onPress={() => setManualMedFreq(frq)}
+                      >
+                        <Ionicons name="add" size={12} color={manualMedFreq === frq ? '#FFFFFF' : '#00B894'} />
+                        <Text style={[styles.quickChipText, manualMedFreq === frq && styles.quickChipTextActive]}>{frq}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </View>
+
+                {/* Duration with typing field & add up buttons */}
+                <View style={{ marginTop: 10 }}>
+                  <Text style={styles.fieldSubLabel}>Duration</Text>
+                  <TextInput
+                    style={styles.stepInputSingle}
+                    placeholder="e.g. 5 days"
+                    placeholderTextColor="#94A3B8"
+                    value={manualMedDuration}
+                    onChangeText={setManualMedDuration}
+                  />
+                  <View style={styles.quickChipsWrap}>
+                    {['3 days', '5 days', '7 days', '10 days', '14 days', '1 month'].map((dur) => (
+                      <TouchableOpacity
+                        key={dur}
+                        style={[styles.quickChipItem, manualMedDuration === dur && styles.quickChipItemActive]}
+                        onPress={() => setManualMedDuration(dur)}
+                      >
+                        <Ionicons name="add" size={12} color={manualMedDuration === dur ? '#FFFFFF' : '#00B894'} />
+                        <Text style={[styles.quickChipText, manualMedDuration === dur && styles.quickChipTextActive]}>{dur}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </View>
+
+                {/* Schedule Timings Button -> Opens Pop-up modal */}
+                <View style={{ marginTop: 12 }}>
+                  <Text style={styles.fieldSubLabel}>Schedule Timings</Text>
+                  <TouchableOpacity
+                    style={styles.scheduleTimingsTriggerBtn}
+                    onPress={() => handleOpenTimingModal('manual')}
+                    activeOpacity={0.8}
+                  >
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                      <Ionicons name="alarm-outline" size={16} color="#00B894" />
+                      <Text style={styles.scheduleTimingsTriggerText}>
+                        {[manualMedMorning && 'Morn', manualMedAfternoon && 'Aftern', manualMedNight && 'Night'].filter(Boolean).join(', ') || 'Not set'} · {manualMedFoodTiming === 'after' ? 'After food' : 'Before food'}
                       </Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-
-                <Text style={[styles.fieldSubLabel, { marginTop: 10 }]}>Schedule Timings</Text>
-                <View style={styles.timingTogglesRow}>
-                  <TouchableOpacity
-                    style={[styles.timingToggleBtn, manualMedMorning && styles.timingToggleBtnActive]}
-                    onPress={() => setManualMedMorning(!manualMedMorning)}
-                  >
-                    <Ionicons name="sunny-outline" size={14} color={manualMedMorning ? '#FFFFFF' : '#475569'} />
-                    <Text style={[styles.timingToggleText, manualMedMorning && styles.timingToggleTextActive]}>
-                      Morning
-                    </Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    style={[styles.timingToggleBtn, manualMedAfternoon && styles.timingToggleBtnActive]}
-                    onPress={() => setManualMedAfternoon(!manualMedAfternoon)}
-                  >
-                    <Ionicons name="partly-sunny-outline" size={14} color={manualMedAfternoon ? '#FFFFFF' : '#475569'} />
-                    <Text style={[styles.timingToggleText, manualMedAfternoon && styles.timingToggleTextActive]}>
-                      Afternoon
-                    </Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    style={[styles.timingToggleBtn, manualMedNight && styles.timingToggleBtnActive]}
-                    onPress={() => setManualMedNight(!manualMedNight)}
-                  >
-                    <Ionicons name="moon-outline" size={14} color={manualMedNight ? '#FFFFFF' : '#475569'} />
-                    <Text style={[styles.timingToggleText, manualMedNight && styles.timingToggleTextActive]}>
-                      Night
-                    </Text>
+                    </View>
+                    <View style={styles.timingChangePill}>
+                      <Text style={styles.timingChangePillText}>Change / Set Timings</Text>
+                    </View>
                   </TouchableOpacity>
                 </View>
 
-                <View style={styles.foodTimingToggleRow}>
-                  <TouchableOpacity
-                    style={[
-                      styles.foodTogglePill,
-                      manualMedFoodTiming === 'after' && styles.foodTogglePillActive,
-                    ]}
-                    onPress={() => setManualMedFoodTiming('after')}
-                  >
-                    <Ionicons name="restaurant-outline" size={13} color={manualMedFoodTiming === 'after' ? '#FFFFFF' : '#475569'} />
-                    <Text style={[styles.foodToggleText, manualMedFoodTiming === 'after' && styles.foodToggleTextActive]}>
-                      After Food
-                    </Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    style={[
-                      styles.foodTogglePill,
-                      manualMedFoodTiming === 'before' && styles.foodTogglePillActive,
-                    ]}
-                    onPress={() => setManualMedFoodTiming('before')}
-                  >
-                    <Ionicons name="time-outline" size={13} color={manualMedFoodTiming === 'before' ? '#FFFFFF' : '#475569'} />
-                    <Text style={[styles.foodToggleText, manualMedFoodTiming === 'before' && styles.foodToggleTextActive]}>
-                      Before Food
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-
+                {/* Add to Prescription Button */}
                 <TouchableOpacity
                   style={styles.addMedicineActionBtn}
-                  onPress={handleAddMedicine}
+                  onPress={handleAddManualMedicine}
                   activeOpacity={0.88}
                 >
                   <Ionicons name="add-circle" size={17} color="#FFFFFF" />
@@ -2618,7 +2856,7 @@ export default function DoctorAppointmentsPage({
             </ScrollView>
 
             {/* Step 3 Static Bottom Footer */}
-            <View style={styles.wsStaticFooter}>
+            <View style={styles.wsStaticFooter} className="doctor-drawer-static-footer">
               <TouchableOpacity
                 style={styles.wsFooterRescheduleBtn}
                 onPress={() => setInPersonStep(2)}
@@ -2643,7 +2881,7 @@ export default function DoctorAppointmentsPage({
 
         {/* STEP 4: TEST REQUIREMENTS SLIDE PAGE */}
         {isInPerson && inPersonStep === 4 && (
-          <View style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+          <View style={styles.drawerStepView} className="doctor-drawer-step-view">
             <View style={styles.stepHeader}>
               <View style={styles.stepHeaderTopRow}>
                 <TouchableOpacity
@@ -2664,7 +2902,16 @@ export default function DoctorAppointmentsPage({
               </Text>
             </View>
 
-            <ScrollView style={styles.wsScrollBody} contentContainerStyle={styles.wsScrollContent} showsVerticalScrollIndicator={false}>
+            <ScrollView
+              id="doctor-drawer-scroll-body-4"
+              nativeID="doctor-drawer-scroll-body-4"
+              testID="doctor-drawer-scroll-body-4"
+              style={styles.wsScrollBody}
+              className="doctor-drawer-scroll-body"
+              contentContainerStyle={styles.wsScrollContent}
+              showsVerticalScrollIndicator={true}
+              persistentScrollbar={true}
+            >
               {/* Patient Brief Strip */}
               <View style={styles.patientBriefStrip}>
                 <View style={styles.briefAvatar}>
@@ -2683,17 +2930,19 @@ export default function DoctorAppointmentsPage({
                 </View>
               </View>
 
-              {/* Card 1: Search Tests with Dropdown */}
+              {/* Card 1: SEARCH LAB DIAGNOSTICS (SEPARATE CARD BOX) */}
               <View style={[styles.stepSectionCard, { zIndex: 120 }]}>
                 <View style={styles.stepCardHeader}>
-                  <Ionicons name="search-outline" size={16} color="#00B894" />
+                  <Ionicons name="search-outline" size={17} color="#00B894" />
                   <Text style={styles.stepCardTitle}>Search Lab Diagnostics Library</Text>
                 </View>
-                <View style={styles.searchDropdownContainer}>
-                  <Ionicons name="search" size={16} color="#94A3B8" />
+
+                {/* Search Typing Box: Height Increased */}
+                <View style={[styles.searchDropdownContainer, styles.searchDropdownContainerTall]}>
+                  <Ionicons name="search" size={18} color="#00B894" />
                   <TextInput
-                    style={styles.searchDropdownInput}
-                    placeholder="Search test e.g. CBC, Lipid Profile, HbA1c, ECG..."
+                    style={[styles.searchDropdownInput, styles.searchDropdownInputTall]}
+                    placeholder="Search tests e.g. CBC, Lipid Profile, HbA1c, LFT..."
                     placeholderTextColor="#94A3B8"
                     value={testSearchQuery}
                     onChangeText={(t) => {
@@ -2708,19 +2957,19 @@ export default function DoctorAppointmentsPage({
                   >
                     <Ionicons
                       name={testDropdownVisible ? 'chevron-up' : 'chevron-down'}
-                      size={16}
+                      size={18}
                       color="#081E3E"
                     />
                   </TouchableOpacity>
                 </View>
 
-                {/* Test Dropdown Menu */}
+                {/* Test Dropdown Menu with Highlighted Select Button */}
                 {testDropdownVisible && (
                   <View style={styles.catalogDropdownMenu}>
-                    <ScrollView style={{ maxHeight: 180 }} nestedScrollEnabled>
+                    <ScrollView style={{ maxHeight: 200 }} nestedScrollEnabled>
                       {filteredTests.length === 0 ? (
                         <View style={{ padding: 12, alignItems: 'center' }}>
-                          <Text style={{ fontSize: 12, color: '#94A3B8' }}>No exact match. Enter manually below.</Text>
+                          <Text style={{ fontSize: 12, color: '#94A3B8' }}>No exact match. Use manual entry below.</Text>
                         </View>
                       ) : (
                         filteredTests.map((item, idx) => (
@@ -2728,90 +2977,191 @@ export default function DoctorAppointmentsPage({
                             key={idx}
                             style={styles.catalogDropdownItem}
                             onPress={() => {
-                              setManualTestName(item.name);
-                              setManualTestInstructions(item.defaultInstructions || 'Random / No fasting needed');
-                              setTestSearchQuery(item.name);
+                              setSearchTestSelectedName(item.name);
+                              setSearchTestPrep(item.defaultInstructions || 'fasting 10 hrs');
+                              setTestSearchQuery(''); // Clears search field
                               setTestDropdownVisible(false);
                             }}
                           >
-                            <View style={{ flex: 1 }}>
+                            <View style={{ flex: 1, paddingRight: 8 }}>
                               <Text style={styles.catalogItemTitle}>{item.name}</Text>
                               <Text style={styles.catalogItemSub}>{item.category} · {item.defaultInstructions}</Text>
                             </View>
-                            <View style={styles.catalogSelectPill}>
-                              <Text style={styles.catalogSelectPillText}>Select</Text>
-                            </View>
+                            {/* Highlighted Select Button in Dropdown */}
+                            <TouchableOpacity
+                              style={styles.catalogSelectPillHighlighted}
+                              onPress={() => {
+                                setSearchTestSelectedName(item.name);
+                                setSearchTestPrep(item.defaultInstructions || 'fasting 10 hrs');
+                                setTestSearchQuery(''); // Clears search field
+                                setTestDropdownVisible(false);
+                              }}
+                            >
+                              <Text style={styles.catalogSelectPillTextHighlighted}>Select</Text>
+                            </TouchableOpacity>
                           </TouchableOpacity>
                         ))
                       )}
                     </ScrollView>
                   </View>
                 )}
+
+                {/* Selected Test Reflection & Fields */}
+                <View style={{ marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: '#F1F5F9' }}>
+                  <Text style={styles.fieldSubLabel}>Test Name</Text>
+                  <TextInput
+                    style={[styles.stepInputSingle, searchTestSelectedName ? styles.stepInputSelected : null]}
+                    placeholder="Selected test from search will appear here..."
+                    placeholderTextColor="#94A3B8"
+                    value={searchTestSelectedName}
+                    onChangeText={setSearchTestSelectedName}
+                  />
+
+                  {/* Patient Preparation / Diet Requirement with typing field & add up buttons */}
+                  <View style={{ marginTop: 10 }}>
+                    <Text style={styles.fieldSubLabel}>Patient Preparation / Diet Requirement</Text>
+                    <TextInput
+                      style={styles.stepInputSingle}
+                      placeholder="e.g. fasting 10 hrs, drinking only water..."
+                      placeholderTextColor="#94A3B8"
+                      value={searchTestPrep}
+                      onChangeText={setSearchTestPrep}
+                    />
+                    <View style={styles.quickChipsWrap}>
+                      {['fasting 10 hrs', 'drinking only water', 'fasting 12 hrs', 'post-meal 2 hrs', 'random / no fasting', 'morning sample only'].map((prep) => (
+                        <TouchableOpacity
+                          key={prep}
+                          style={[styles.quickChipItem, searchTestPrep === prep && styles.quickChipItemActive]}
+                          onPress={() => setSearchTestPrep(prep)}
+                        >
+                          <Ionicons name="add" size={12} color={searchTestPrep === prep ? '#FFFFFF' : '#00B894'} />
+                          <Text style={[styles.quickChipText, searchTestPrep === prep && styles.quickChipTextActive]}>{prep}</Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  </View>
+
+                  {/* Clinical Instructions for Lab Technician with typing field & add up buttons */}
+                  <View style={{ marginTop: 10 }}>
+                    <Text style={styles.fieldSubLabel}>Clinical Instructions for Lab Technician</Text>
+                    <TextInput
+                      style={styles.stepInputSingle}
+                      placeholder="e.g. Routine processing, check platelets..."
+                      placeholderTextColor="#94A3B8"
+                      value={searchTestInstructions}
+                      onChangeText={setSearchTestInstructions}
+                    />
+                    <View style={styles.quickChipsWrap}>
+                      {['Routine processing', 'Check platelets & TLC', 'Urgent stat report', 'Serum separator tube', 'Repeat test'].map((ins) => (
+                        <TouchableOpacity
+                          key={ins}
+                          style={[styles.quickChipItem, searchTestInstructions === ins && styles.quickChipItemActive]}
+                          onPress={() => setSearchTestInstructions(ins)}
+                        >
+                          <Ionicons name="add" size={12} color={searchTestInstructions === ins ? '#FFFFFF' : '#00B894'} />
+                          <Text style={[styles.quickChipText, searchTestInstructions === ins && styles.quickChipTextActive]}>{ins}</Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  </View>
+
+                  {/* Add to Test Required Button */}
+                  <TouchableOpacity
+                    style={styles.addMedicineActionBtn}
+                    onPress={handleAddSearchTest}
+                    activeOpacity={0.88}
+                  >
+                    <Ionicons name="add-circle" size={17} color="#FFFFFF" />
+                    <Text style={styles.addMedicineActionBtnText}>Add to Test Required</Text>
+                  </TouchableOpacity>
+                </View>
               </View>
 
-              {/* Card 2: Manual Test Entry Form */}
+              {/* Card 2: MANUAL TEST REQUIREMENTS ENTRY (SEPARATE CARD BOX) */}
               <View style={styles.stepSectionCard}>
                 <View style={styles.stepCardHeader}>
-                  <Ionicons name="create-outline" size={16} color="#081E3E" />
-                  <Text style={styles.stepCardTitle}>Manual Test Requirement Entry</Text>
+                  <Ionicons name="create-outline" size={17} color="#081E3E" />
+                  <Text style={styles.stepCardTitle}>Manual Test Requirements Entry</Text>
                 </View>
 
-                <Text style={styles.fieldSubLabel}>Test / Investigation Name</Text>
+                {/* Test Name with typing field & add up buttons */}
+                <Text style={styles.fieldSubLabel}>Test Name</Text>
                 <TextInput
                   style={styles.stepInputSingle}
-                  placeholder="e.g. Complete Blood Count (CBC), Serum Creatinine..."
+                  placeholder="e.g. Complete Blood Count (CBC), Lipid Profile..."
                   placeholderTextColor="#94A3B8"
                   value={manualTestName}
                   onChangeText={setManualTestName}
                 />
-
-                <Text style={[styles.fieldSubLabel, { marginTop: 10 }]}>Patient Preparation / Diet Requirement</Text>
                 <View style={styles.quickChipsWrap}>
-                  {[
-                    'Fasting 8-10 hrs',
-                    'Drinking only water',
-                    'Random / No fasting needed',
-                    'Post-meal 2 hrs',
-                    'Morning sample only',
-                  ].map((prep) => (
+                  {['Complete Blood Count (CBC)', 'Lipid Profile', 'Fasting Blood Sugar (FBS)', 'HbA1c', 'Thyroid Profile (TSH)', 'Kidney Function Test (KFT)'].map((tName) => (
                     <TouchableOpacity
-                      key={prep}
-                      style={[
-                        styles.quickChipItem,
-                        manualTestInstructions === prep && styles.quickChipItemActive,
-                      ]}
-                      onPress={() => setManualTestInstructions(prep)}
+                      key={tName}
+                      style={[styles.quickChipItem, manualTestName === tName && styles.quickChipItemActive]}
+                      onPress={() => setManualTestName(tName)}
                     >
-                      <Text
-                        style={[
-                          styles.quickChipText,
-                          manualTestInstructions === prep && styles.quickChipTextActive,
-                        ]}
-                      >
-                        {prep}
-                      </Text>
+                      <Ionicons name="add" size={12} color={manualTestName === tName ? '#FFFFFF' : '#00B894'} />
+                      <Text style={[styles.quickChipText, manualTestName === tName && styles.quickChipTextActive]}>{tName}</Text>
                     </TouchableOpacity>
                   ))}
                 </View>
 
-                <Text style={[styles.fieldSubLabel, { marginTop: 10 }]}>Clinical Instructions for Lab Technician</Text>
-                <TextInput
-                  style={styles.stepInputMultiline}
-                  multiline
-                  numberOfLines={2}
-                  placeholder="e.g. Urgent processing requested, check platelet count..."
-                  placeholderTextColor="#94A3B8"
-                  value={manualTestNotes}
-                  onChangeText={setManualTestNotes}
-                />
+                {/* Patient Preparation / Diet Requirement with typing field & add up buttons */}
+                <View style={{ marginTop: 10 }}>
+                  <Text style={styles.fieldSubLabel}>Patient Preparation / Diet Requirement</Text>
+                  <TextInput
+                    style={styles.stepInputSingle}
+                    placeholder="e.g. fasting 10 hrs, drinking only water..."
+                    placeholderTextColor="#94A3B8"
+                    value={manualTestPrep}
+                    onChangeText={setManualTestPrep}
+                  />
+                  <View style={styles.quickChipsWrap}>
+                    {['fasting 10 hrs', 'drinking only water', 'fasting 12 hrs', 'post-meal 2 hrs', 'random / no fasting', 'morning sample only'].map((prep) => (
+                      <TouchableOpacity
+                        key={prep}
+                        style={[styles.quickChipItem, manualTestPrep === prep && styles.quickChipItemActive]}
+                        onPress={() => setManualTestPrep(prep)}
+                      >
+                        <Ionicons name="add" size={12} color={manualTestPrep === prep ? '#FFFFFF' : '#00B894'} />
+                        <Text style={[styles.quickChipText, manualTestPrep === prep && styles.quickChipTextActive]}>{prep}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </View>
 
+                {/* Clinical Instructions for Lab Technician with typing field & add up buttons */}
+                <View style={{ marginTop: 10 }}>
+                  <Text style={styles.fieldSubLabel}>Clinical Instructions for Lab Technician</Text>
+                  <TextInput
+                    style={styles.stepInputSingle}
+                    placeholder="e.g. Routine processing, check platelets..."
+                    placeholderTextColor="#94A3B8"
+                    value={manualTestInstructions}
+                    onChangeText={setManualTestInstructions}
+                  />
+                  <View style={styles.quickChipsWrap}>
+                    {['Routine processing', 'Check platelets & TLC', 'Urgent stat report', 'Serum separator tube', 'Repeat test'].map((ins) => (
+                      <TouchableOpacity
+                        key={ins}
+                        style={[styles.quickChipItem, manualTestInstructions === ins && styles.quickChipItemActive]}
+                        onPress={() => setManualTestInstructions(ins)}
+                      >
+                        <Ionicons name="add" size={12} color={manualTestInstructions === ins ? '#FFFFFF' : '#00B894'} />
+                        <Text style={[styles.quickChipText, manualTestInstructions === ins && styles.quickChipTextActive]}>{ins}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </View>
+
+                {/* Add to Test Required Button */}
                 <TouchableOpacity
                   style={styles.addMedicineActionBtn}
-                  onPress={handleAddTest}
+                  onPress={handleAddManualTest}
                   activeOpacity={0.88}
                 >
                   <Ionicons name="add-circle" size={17} color="#FFFFFF" />
-                  <Text style={styles.addMedicineActionBtnText}>Add Test Requirement</Text>
+                  <Text style={styles.addMedicineActionBtnText}>Add to Test Required</Text>
                 </TouchableOpacity>
               </View>
 
@@ -2867,7 +3217,7 @@ export default function DoctorAppointmentsPage({
             </ScrollView>
 
             {/* Step 4 Static Bottom Footer */}
-            <View style={styles.wsStaticFooter}>
+            <View style={styles.wsStaticFooter} className="doctor-drawer-static-footer">
               <TouchableOpacity
                 style={styles.wsFooterRescheduleBtn}
                 onPress={() => setInPersonStep(3)}
@@ -2892,7 +3242,7 @@ export default function DoctorAppointmentsPage({
 
         {/* STEP 5: DATE & TIME SCHEDULE SLIDE PAGE */}
         {isInPerson && inPersonStep === 5 && (
-          <View style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+          <View style={styles.drawerStepView} className="doctor-drawer-step-view">
             <View style={styles.stepHeader}>
               <View style={styles.stepHeaderTopRow}>
                 <TouchableOpacity
@@ -2913,7 +3263,16 @@ export default function DoctorAppointmentsPage({
               </Text>
             </View>
 
-            <ScrollView style={styles.wsScrollBody} contentContainerStyle={styles.wsScrollContent} showsVerticalScrollIndicator={false}>
+            <ScrollView
+              id="doctor-drawer-scroll-body-5"
+              nativeID="doctor-drawer-scroll-body-5"
+              testID="doctor-drawer-scroll-body-5"
+              style={styles.wsScrollBody}
+              className="doctor-drawer-scroll-body"
+              contentContainerStyle={styles.wsScrollContent}
+              showsVerticalScrollIndicator={true}
+              persistentScrollbar={true}
+            >
               {/* Patient Brief Strip */}
               <View style={styles.patientBriefStrip}>
                 <View style={styles.briefAvatar}>
@@ -3100,7 +3459,7 @@ export default function DoctorAppointmentsPage({
             </ScrollView>
 
             {/* Step 5 Static Bottom Footer with SUBMIT BUTTON */}
-            <View style={styles.wsStaticFooter}>
+            <View style={styles.wsStaticFooter} className="doctor-drawer-static-footer">
               <TouchableOpacity
                 style={styles.wsFooterRescheduleBtn}
                 onPress={() => setInPersonStep(4)}
@@ -3883,6 +4242,105 @@ export default function DoctorAppointmentsPage({
           </View>
         </View>
       </Modal>
+
+      {/* Schedule Timings Pop-up Modal (as requested: Morn, Aftern, Night -> Before Food / After Food) */}
+      <Modal
+        visible={timingModalVisible}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setTimingModalVisible(false)}
+      >
+        <View style={styles.modalBackdrop}>
+          <View style={styles.timingModalCard}>
+            <View style={styles.timingModalHeader}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <Ionicons name="alarm" size={20} color="#00B894" />
+                <Text style={styles.timingModalTitle}>Schedule Timings</Text>
+              </View>
+              <TouchableOpacity onPress={() => setTimingModalVisible(false)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                <Ionicons name="close" size={20} color="#64748B" />
+              </TouchableOpacity>
+            </View>
+
+            <Text style={styles.timingModalSubtitle}>
+              Select daily administration times and meal relationship:
+            </Text>
+
+            {/* Daily Administration Times */}
+            <Text style={[styles.fieldSubLabel, { marginTop: 14 }]}>Daily Administration Times</Text>
+            <View style={styles.timingModalRow}>
+              <TouchableOpacity
+                style={[styles.timingModalBtn, timingPopMorning && styles.timingModalBtnActive]}
+                onPress={() => setTimingPopMorning(!timingPopMorning)}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="sunny-outline" size={16} color={timingPopMorning ? '#FFFFFF' : '#475569'} />
+                <Text style={[styles.timingModalBtnText, timingPopMorning && styles.timingModalBtnTextActive]}>
+                  Morning
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.timingModalBtn, timingPopAfternoon && styles.timingModalBtnActive]}
+                onPress={() => setTimingPopAfternoon(!timingPopAfternoon)}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="partly-sunny-outline" size={16} color={timingPopAfternoon ? '#FFFFFF' : '#475569'} />
+                <Text style={[styles.timingModalBtnText, timingPopAfternoon && styles.timingModalBtnTextActive]}>
+                  Afternoon
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.timingModalBtn, timingPopNight && styles.timingModalBtnActive]}
+                onPress={() => setTimingPopNight(!timingPopNight)}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="moon-outline" size={16} color={timingPopNight ? '#FFFFFF' : '#475569'} />
+                <Text style={[styles.timingModalBtnText, timingPopNight && styles.timingModalBtnTextActive]}>
+                  Night
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Food Relationship */}
+            <Text style={[styles.fieldSubLabel, { marginTop: 16 }]}>Meal Relationship</Text>
+            <View style={styles.foodModalRow}>
+              <TouchableOpacity
+                style={[styles.foodModalBtn, timingPopFood === 'after' && styles.foodModalBtnActive]}
+                onPress={() => setTimingPopFood('after')}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="restaurant-outline" size={15} color={timingPopFood === 'after' ? '#FFFFFF' : '#475569'} />
+                <Text style={[styles.foodModalBtnText, timingPopFood === 'after' && styles.foodModalBtnTextActive]}>
+                  After Food
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.foodModalBtn, timingPopFood === 'before' && styles.foodModalBtnActive]}
+                onPress={() => setTimingPopFood('before')}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="time-outline" size={15} color={timingPopFood === 'before' ? '#FFFFFF' : '#475569'} />
+                <Text style={[styles.foodModalBtnText, timingPopFood === 'before' && styles.foodModalBtnTextActive]}>
+                  Before Food
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Confirm / Save Button */}
+            <TouchableOpacity
+              style={styles.timingModalConfirmBtn}
+              onPress={handleSaveTimingModal}
+              activeOpacity={0.85}
+            >
+              <Ionicons name="checkmark-circle-outline" size={18} color="#FFFFFF" />
+              <Text style={styles.timingModalConfirmBtnText}>Confirm Timings</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -4342,10 +4800,16 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    zIndex: 9999,
+    width: '100vw',
+    height: '100vh',
+    zIndex: 99999,
     display: 'flex',
     flexDirection: 'row',
     justifyContent: 'flex-end',
+    alignItems: 'stretch',
+    overflow: 'hidden',
+    padding: 0,
+    margin: 0,
   },
   slideDrawerBackdrop: {
     position: 'absolute',
@@ -4353,27 +4817,41 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: 'rgba(15, 23, 42, 0.58)', // Deep Dimmed background
+    width: '100%',
+    height: '100%',
+    backgroundColor: 'rgba(15, 23, 42, 0.62)',
     backdropFilter: 'blur(3px)',
     WebkitBackdropFilter: 'blur(3px)',
   },
   slideDrawerSheet: {
-    width: '50%',
-    minWidth: 540,
-    maxWidth: 820,
+    position: 'fixed',
+    top: 0,
+    bottom: 0,
+    right: 0,
+    left: '50vw',
+    width: '50vw',
+    minWidth: '50vw',
+    maxWidth: '50vw',
     height: '100%',
+    maxHeight: '100vh',
     backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 24,
-    borderBottomLeftRadius: 24,
+    borderTopLeftRadius: 18,
+    borderBottomLeftRadius: 0,
+    borderTopRightRadius: 0,
+    borderBottomRightRadius: 0,
+    margin: 0,
+    padding: 0,
     display: 'flex',
     flexDirection: 'column',
+    boxShadow: '-10px 0 35px rgba(0, 0, 0, 0.3)',
     shadowColor: '#000000',
     shadowOffset: { width: -14, height: 0 },
     shadowOpacity: 0.35,
     shadowRadius: 36,
-    elevation: 30,
+    elevation: 35,
     overflow: 'hidden',
-    zIndex: 10000,
+    zIndex: 100000,
+    boxSizing: 'border-box',
   },
 
   /* Top Navigation Row (matching the image) */
@@ -4386,6 +4864,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#F1F5F9',
     backgroundColor: '#FFFFFF',
+    flexShrink: 0,
   },
   drawerArrowsGroup: {
     flexDirection: 'row',
@@ -4434,6 +4913,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#061A3A',
     paddingHorizontal: 22,
     paddingVertical: 16,
+    flexShrink: 0,
   },
   wsHeaderTopRow: {
     flexDirection: 'row',
@@ -4478,6 +4958,9 @@ const styles = StyleSheet.create({
   /* Scrollable Body */
   wsScrollBody: {
     flex: 1,
+    minHeight: 0,
+    flexShrink: 1,
+    overflowY: 'scroll',
   },
   wsScrollContent: {
     padding: 20,
@@ -5092,10 +5575,20 @@ const styles = StyleSheet.create({
     borderTopWidth: 1.2,
     borderTopColor: '#E2E8F0',
     paddingHorizontal: 20,
-    paddingVertical: 14,
+    paddingTop: 10,
+    paddingBottom: 14,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
+    flexShrink: 0,
+    boxSizing: 'border-box',
+  },
+  drawerStepView: {
+    flex: 1,
+    minHeight: 0,
+    display: 'flex',
+    flexDirection: 'column',
+    overflow: 'hidden',
   },
   wsFooterAcceptBtn: {
     flexDirection: 'row',
@@ -5809,6 +6302,7 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     borderBottomWidth: 1,
     borderBottomColor: '#1E3A8A',
+    flexShrink: 0,
   },
   inPersonStepItem: {
     flexDirection: 'row',
@@ -5864,6 +6358,7 @@ const styles = StyleSheet.create({
     paddingBottom: 14,
     borderBottomWidth: 1,
     borderBottomColor: '#1E293B',
+    flexShrink: 0,
   },
   stepHeaderTopRow: {
     flexDirection: 'row',
@@ -6331,5 +6826,186 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '700',
     color: '#0284C7',
+  },
+
+  /* Added styles for Step 2, Step 3, Step 4 updates */
+  searchDropdownContainerTall: {
+    position: 'relative',
+    zIndex: 100,
+    marginBottom: 8,
+  },
+  searchDropdownInputTall: {
+    height: 52,
+    fontSize: 15,
+    borderWidth: 1.8,
+    borderColor: '#00B894',
+    borderRadius: 12,
+    backgroundColor: '#F0FDF4',
+    paddingHorizontal: 16,
+    color: '#081E3E',
+    fontWeight: '600',
+    shadowColor: '#00B894',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.12,
+    shadowRadius: 6,
+    elevation: 3,
+  },
+  catalogSelectPillHighlighted: {
+    backgroundColor: '#00B894',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 8,
+    shadowColor: '#00B894',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  catalogSelectPillTextHighlighted: {
+    color: '#FFFFFF',
+    fontWeight: '800',
+    fontSize: 12.5,
+  },
+  stepInputSelected: {
+    borderColor: '#00B894',
+    backgroundColor: '#F0FDF4',
+    color: '#081E3E',
+    fontWeight: '700',
+  },
+  scheduleTimingsTriggerBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1.5,
+    borderColor: '#081E3E',
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    marginTop: 4,
+  },
+  scheduleTimingsTriggerText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#081E3E',
+    marginLeft: 8,
+    flex: 1,
+  },
+  timingChangePill: {
+    backgroundColor: '#081E3E',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 6,
+  },
+  timingChangePillText: {
+    color: '#FFFFFF',
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  consultAddOnBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#081E3E',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 10,
+    gap: 6,
+  },
+  consultAddOnBtnText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  timingModalCard: {
+    width: '90%',
+    maxWidth: 440,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 24,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.25,
+    shadowRadius: 24,
+    elevation: 20,
+  },
+  timingModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  timingModalTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#081E3E',
+  },
+  timingModalSubtitle: {
+    fontSize: 12.5,
+    color: '#64748B',
+    marginBottom: 18,
+  },
+  timingModalRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginBottom: 16,
+  },
+  timingModalBtn: {
+    flex: 1,
+    paddingVertical: 12,
+    paddingHorizontal: 10,
+    borderRadius: 10,
+    borderWidth: 1.5,
+    borderColor: '#CBD5E1',
+    backgroundColor: '#F8FAFC',
+    alignItems: 'center',
+  },
+  timingModalBtnActive: {
+    backgroundColor: '#081E3E',
+    borderColor: '#081E3E',
+  },
+  timingModalBtnText: {
+    fontSize: 12.5,
+    fontWeight: '700',
+    color: '#475569',
+  },
+  timingModalBtnTextActive: {
+    color: '#FFFFFF',
+  },
+  foodModalRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginBottom: 20,
+  },
+  foodModalBtn: {
+    flex: 1,
+    paddingVertical: 11,
+    borderRadius: 10,
+    borderWidth: 1.5,
+    borderColor: '#CBD5E1',
+    backgroundColor: '#F8FAFC',
+    alignItems: 'center',
+  },
+  foodModalBtnActive: {
+    backgroundColor: '#00B894',
+    borderColor: '#00B894',
+  },
+  foodModalBtnText: {
+    fontSize: 12.5,
+    fontWeight: '700',
+    color: '#475569',
+  },
+  foodModalBtnTextActive: {
+    color: '#FFFFFF',
+  },
+  timingModalConfirmBtn: {
+    backgroundColor: '#00B894',
+    paddingVertical: 14,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  timingModalConfirmBtnText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '800',
   },
 });

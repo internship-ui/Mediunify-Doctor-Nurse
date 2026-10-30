@@ -12,7 +12,6 @@ import DoctorSchedulePage from './DoctorSchedulePage';
 import DoctorEarningsPage from './DoctorEarningsPage';
 import DoctorHomeNursingPage from './DoctorHomeNursingPage';
 import DoctorProfilePage from './DoctorProfilePage';
-import DoctorEmailPage from './DoctorEmailPage';
 
 export default function DoctorWebPortal({ onNavigateHome }) {
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -77,6 +76,7 @@ export default function DoctorWebPortal({ onNavigateHome }) {
             onStartConsultNotes={handleStartConsultNotes}
             onViewPatientDetails={handleViewPatientDetails}
             onViewFollowUpPatient={handleViewFollowUpPatient}
+            onNavigateHome={onNavigateHome}
           />
         );
       case 'appointments':
@@ -130,15 +130,6 @@ export default function DoctorWebPortal({ onNavigateHome }) {
             setActiveTab={handleSelectTab}
           />
         );
-      case 'email':
-      case 'mail':
-      case 'messages':
-        return (
-          <DoctorEmailPage
-            setActiveTab={handleSelectTab}
-            onNavigateHome={onNavigateHome}
-          />
-        );
       case 'consultnotes':
         return (
           <DoctorAppointmentsPage
@@ -181,10 +172,22 @@ export default function DoctorWebPortal({ onNavigateHome }) {
             onStartConsultNotes={handleStartConsultNotes}
             onViewPatientDetails={handleViewPatientDetails}
             onViewFollowUpPatient={handleViewFollowUpPatient}
+            onNavigateHome={onNavigateHome}
           />
         );
     }
   };
+
+  if (activeTab === 'consultation') {
+    return (
+      <View style={{ flex: 1, width: '100%', height: '100vh', maxHeight: '100vh', overflow: 'hidden', backgroundColor: '#071E42' }}>
+        <DoctorConsultationPage
+          selectedConsultation={selectedConsultation}
+          setActiveTab={handleSelectTab}
+        />
+      </View>
+    );
+  }
 
   return (
     <View style={styles.portalRoot}>

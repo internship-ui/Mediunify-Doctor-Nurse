@@ -15,6 +15,17 @@ import SpecialityServicesScreen from '../screens/SpecialityServicesScreen';
 import FollowUpsScreen from '../screens/FollowUpsScreen';
 import DirectPatientScreen from '../screens/DirectPatientScreen';
 import AppointmentDetailScreen from '../screens/AppointmentDetailScreen';
+import ClaimProfileScreen from '../screens/ClaimProfileScreen';
+import DashboardScreen from '../screens/DashboardScreen';
+import RoleSelectionScreen from '../screens/RoleSelectionScreen';
+import LoginScreen from '../screens/LoginScreen';
+import RegistrationScreen from '../screens/RegistrationScreen';
+import SplashScreen from '../screens/SplashScreen';
+import {
+  HomeNursingLoginScreen,
+  HomeNursingRegistrationScreen,
+  HomeNursingNavigator,
+} from '../homeNursing';
 import { useAuth } from '../context/AuthContext';
 
 const Stack = createNativeStackNavigator();
@@ -23,6 +34,19 @@ function AppStack() {
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
       <Stack.Screen name="MainTabs" component={MainTabs} />
+      <Stack.Screen name="DashboardScreen" component={DashboardScreen} />
+      <Stack.Screen name="Dashboard" component={DashboardScreen} />
+      <Stack.Screen name="DashbaordScreen" component={DashboardScreen} />
+      <Stack.Screen name="RoleSelectionScreen" component={RoleSelectionScreen} />
+      <Stack.Screen name="RoleSelection" component={RoleSelectionScreen} />
+      <Stack.Screen name="Login" component={LoginScreen} />
+      <Stack.Screen name="LoginScreen" component={LoginScreen} />
+      <Stack.Screen name="Registration" component={RegistrationScreen} />
+      <Stack.Screen name="HomeNursingLogin" component={HomeNursingLoginScreen} />
+      <Stack.Screen name="HomeNursingRegistration" component={HomeNursingRegistrationScreen} />
+      <Stack.Screen name="HomeNursingApp" component={HomeNursingNavigator} />
+      <Stack.Screen name="Splash" component={SplashScreen} />
+      <Stack.Screen name="ClaimProfile" component={ClaimProfileScreen} />
       <Stack.Screen name="AppointmentDetail" component={AppointmentDetailScreen} />
       <Stack.Screen name="PatientProfile" component={PatientProfileScreen} />
       <Stack.Screen name="Consultation" component={ConsultationScreen} />

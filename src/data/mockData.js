@@ -116,7 +116,7 @@ export const patients = [
 export const appointments = [
   { id: 'a1', patientId: 'p1', patient: 'Rahul Kumar', age: 34, gender: 'Male', time: '10:00 AM', date: 'Today', type: 'Video', reason: 'Follow-up: Blood pressure check', status: 'confirmed', isFollowUp: true },
   { id: 'a2', patientId: 'p2', patient: 'Priya Sharma', age: 28, gender: 'Female', time: '11:30 AM', date: 'Today', type: 'In-Person', reason: 'Seasonal allergy symptoms', status: 'pending', isFollowUp: false },
-  { id: 'a3', patientId: 'p3', patient: 'Arjun Menon', age: 45, gender: 'Male', time: '1:00 PM', date: 'Today', type: 'Video', reason: 'Diabetes review', status: 'confirmed', isFollowUp: true },
+  { id: 'a3', patientId: 'p3', patient: 'Arjun Menon', age: 45, gender: 'Male', time: '1:00 PM', date: 'Today', type: 'Video', reason: 'Diabetes review', status: 'pending', isFollowUp: true },
   { id: 'a4', patientId: 'p4', patient: 'Sneha Iyer', age: 31, gender: 'Female', time: '4:30 PM', date: 'Today', type: 'In-Person', reason: 'General consultation', status: 'completed', isFollowUp: false },
   { id: 'a5', patientId: 'p1', patient: 'Rahul Kumar', age: 34, gender: 'Male', time: '9:00 AM', date: 'Yesterday', type: 'In-Person', reason: 'Routine checkup', status: 'cancelled', isFollowUp: false },
   { id: 'a6', patientId: 'p3', patient: 'Arjun Menon', age: 45, gender: 'Male', time: '3:00 PM', date: 'Today', type: 'In-Person', reason: 'Foot ulcer check', status: 'pending', isFollowUp: false },

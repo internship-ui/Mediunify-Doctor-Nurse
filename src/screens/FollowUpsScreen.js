@@ -24,6 +24,7 @@ export default function FollowUpsScreen({ navigation }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedFilter, setSelectedFilter] = useState('all'); // 'all' | 'today' | 'upcoming' | 'overdue'
   const [followUpModalItem, setFollowUpModalItem] = useState(null);
+  const [upcomingConfirmed, setUpcomingConfirmed] = useState(false);
 
   // Dynamic counts matching the user's header summary cards
   const counts = useMemo(() => {
@@ -323,9 +324,14 @@ export default function FollowUpsScreen({ navigation }) {
           return (
             <TouchableOpacity
               onPress={() => {
-                navigation.navigate('PatientProfile', {
-                  patientId: item.patientId,
-                });
+                if (item.status === 'upcoming' || item.status === 'overdue') {
+                  setUpcomingConfirmed(false);
+                  setFollowUpModalItem(item);
+                } else {
+                  navigation.navigate('PatientProfile', {
+                    patientId: item.patientId,
+                  });
+                }
               }}
               activeOpacity={0.85}
             >
@@ -557,14 +563,20 @@ export default function FollowUpsScreen({ navigation }) {
                     </TouchableOpacity>
                   </View>
                 ) : (
-                  /* UPCOMING -> WITH VISIT ONLY SHOWING -> OK BUTTON */
-                  <View style={styles.modalActionsRow}>
+                  /* UPCOMING -> POP-UP -> LITTLE BIT DETAILS AND JUST BELOW THAT OK DIRECT TO FOLLOW-UP PAGE */
+                  <View style={{ marginTop: 16 }}>
                     <TouchableOpacity
-                      style={[styles.modalProfileBtn, { flex: 1, justifyContent: 'center' }]}
-                      onPress={() => setFollowUpModalItem(null)}
-                      activeOpacity={0.85}
+                      style={[
+                        styles.modalProfileBtn,
+                        { backgroundColor: '#00B894', width: '100%', justifyContent: 'center', height: 46 },
+                      ]}
+                      onPress={() => {
+                        setFollowUpModalItem(null);
+                        setUpcomingConfirmed(false);
+                      }}
+                      activeOpacity={0.88}
                     >
-                      <Text style={styles.modalProfileBtnText}>OK</Text>
+                      <Text style={[styles.modalProfileBtnText, { fontSize: 15, fontWeight: '800' }]}>OK</Text>
                     </TouchableOpacity>
                   </View>
                 )}

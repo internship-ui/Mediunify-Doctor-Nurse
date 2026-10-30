@@ -1,3 +1,4 @@
+import { SafeAreaView } from 'react-native-safe-area-context';
 import React from 'react';
 import {
   View,
@@ -6,7 +7,6 @@ import {
   Image,
   TouchableOpacity,
   Dimensions,
-  SafeAreaView,
   StatusBar,
   Alert,
 } from 'react-native';
@@ -17,11 +17,19 @@ const { width } = Dimensions.get('window');
 
 export default function RoleSelectionScreen({ navigation }) {
   const handleSelectDoctor = () => {
-    navigation.navigate('Login');
+    try {
+      navigation.navigate('Login');
+    } catch (e) {
+      try {
+        navigation.navigate('LoginScreen');
+      } catch (err) {}
+    }
   };
 
   const handleSelectHomeNursing = () => {
-    navigation.navigate('HomeNursingLogin');
+    try {
+      navigation.navigate('HomeNursingLogin');
+    } catch (e) {}
   };
 
   return (

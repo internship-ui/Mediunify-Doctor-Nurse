@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, Modal } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, Modal, Linking } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useHomeNursing } from '../../homeNursing/context/HomeNursingContext';
 
@@ -7,6 +7,7 @@ export default function NurseTopNavbar({
   activeTab = 'dashboard',
   setActiveTab,
   onNavigateHome,
+  onLogout,
   onOpenNotifications,
 }) {
   const {
@@ -320,12 +321,16 @@ export default function NurseTopNavbar({
         </TouchableOpacity>
 
         {/* ============================================================== */}
-        {/* 3. EMAIL BUTTON (DIRECTS TO EMAIL PAGE)                        */}
+        {/* 3. EMAIL BUTTON (DIRECTS TO EXTERNAL GOOGLE EMAIL)             */}
         {/* ============================================================== */}
         <TouchableOpacity
           style={styles.headerIconBtn}
           onPress={() => {
-            if (setActiveTab) setActiveTab('email');
+            if (typeof window !== 'undefined' && window.open) {
+              window.open('https://mail.google.com', '_blank');
+            } else {
+              Linking.openURL('https://mail.google.com');
+            }
           }}
           activeOpacity={0.7}
         >
@@ -555,30 +560,25 @@ export default function NurseTopNavbar({
                 <Text style={styles.dropdownMenuText}>My Profile</Text>
               </TouchableOpacity>
 
-              {/* 2. AVAILABILITY -> DIRECTS TO SCHEDULE PAGE */}
-              <TouchableOpacity
-                style={styles.dropdownMenuItem}
-                onPress={() => {
-                  setShowProfileDropdown(false);
-                  if (setActiveTab) setActiveTab('schedule');
-                }}
-                activeOpacity={0.7}
-              >
-                <Ionicons name="calendar-outline" size={16} color="#00B894" />
-                <Text style={styles.dropdownMenuText}>Availability</Text>
-              </TouchableOpacity>
+              <View style={styles.dropdownDivider} />
 
-              {/* 3. SERVICES -> DIRECTS TO SERVICES PAGE */}
+              {/* 2. SIGN OUT -> SIGNS OUT AND DIRECTS TO HOME PAGE */}
               <TouchableOpacity
                 style={styles.dropdownMenuItem}
                 onPress={() => {
                   setShowProfileDropdown(false);
-                  if (setActiveTab) setActiveTab('services');
+                  if (onLogout) {
+                    onLogout();
+                  } else if (onNavigateHome) {
+                    onNavigateHome();
+                  }
                 }}
                 activeOpacity={0.7}
               >
-                <Ionicons name="bag-handle-outline" size={16} color="#8B5CF6" />
-                <Text style={styles.dropdownMenuText}>Services</Text>
+                <Ionicons name="log-out-outline" size={16} color="#DC2626" />
+                <Text style={[styles.dropdownMenuText, { color: '#DC2626', fontWeight: '700' }]}>
+                  Sign Out
+                </Text>
               </TouchableOpacity>
             </View>
           )}
@@ -716,6 +716,8 @@ const styles = StyleSheet.create({
     minHeight: 70,
     zIndex: 100,
     position: 'relative',
+    flexWrap: 'wrap',
+    gap: 12,
   },
   popoverBackdrop: {
     position: 'fixed',

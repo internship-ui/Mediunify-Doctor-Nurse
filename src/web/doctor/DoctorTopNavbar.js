@@ -83,11 +83,16 @@ export default function DoctorTopNavbar({
           <Text style={styles.secondaryActionBtnText}>Write Rx</Text>
         </TouchableOpacity>
 
-        {/* Email / Messages Icon */}
+        {/* Email / Messages Icon -> Directs to external Google Email with "to" tag */}
         <TouchableOpacity
           style={styles.iconButton}
           activeOpacity={0.7}
-          onPress={() => setActiveTab('email')}
+          onPress={() => {
+            if (typeof window !== 'undefined') {
+              window.open('https://mail.google.com/mail/?view=cm&fs=1&to=', '_blank');
+            }
+          }}
+          title="Compose Email via Google Mail"
         >
           <Ionicons name="mail-outline" size={20} color="#334155" />
         </TouchableOpacity>
@@ -134,6 +139,17 @@ export default function DoctorTopNavbar({
                 <Text style={styles.dropdownSub}>{doctor.qualification}</Text>
                 <Text style={styles.dropdownReg}>Reg: {doctor.regNo}</Text>
               </View>
+
+              <TouchableOpacity
+                style={styles.dropdownItem}
+                onPress={() => {
+                  setShowProfileMenu(false);
+                  setActiveTab('profile');
+                }}
+              >
+                <Ionicons name="person-outline" size={16} color="#334155" />
+                <Text style={styles.dropdownItemText}>My Profile</Text>
+              </TouchableOpacity>
 
               <TouchableOpacity
                 style={styles.dropdownItem}
@@ -245,12 +261,17 @@ const styles = StyleSheet.create({
   },
   searchContainer: {
     flex: 1,
-    maxWidth: 420,
+    maxWidth: 440,
     height: 42,
-    backgroundColor: '#F1F5F9',
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: '#00B894',
+    shadowColor: '#00B894',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.18,
+    shadowRadius: 8,
+    elevation: 3,
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 12,

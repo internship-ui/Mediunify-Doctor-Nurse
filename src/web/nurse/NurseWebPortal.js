@@ -7,7 +7,6 @@ import NurseAvailabilityPage from './NurseAvailabilityPage';
 import NurseHistoryPage from './NurseHistoryPage';
 import NurseProfilePage from './NurseProfilePage';
 import NurseDashboardPage from './NurseDashboardPage';
-import NurseEmailPage from './NurseEmailPage';
 
 export default function NurseWebPortal({ onNavigateHome, onLogout }) {
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -27,15 +26,6 @@ export default function NurseWebPortal({ onNavigateHome, onLogout }) {
       case 'profile':
         return (
           <NurseProfilePage
-            setActiveTab={setActiveTab}
-            onNavigateHome={onNavigateHome}
-          />
-        );
-      case 'email':
-      case 'mail':
-      case 'messages':
-        return (
-          <NurseEmailPage
             setActiveTab={setActiveTab}
             onNavigateHome={onNavigateHome}
           />
@@ -60,6 +50,7 @@ export default function NurseWebPortal({ onNavigateHome, onLogout }) {
           activeTab={activeTab}
           setActiveTab={setActiveTab}
           onNavigateHome={onNavigateHome}
+          onLogout={onLogout || onNavigateHome}
           onOpenNotifications={() => setActiveTab('notifications')}
         />
         <View style={styles.bodyViewport}>

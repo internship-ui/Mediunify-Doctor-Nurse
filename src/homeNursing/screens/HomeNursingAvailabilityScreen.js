@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from 'react';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import {
   View,
   Text,
@@ -11,7 +12,6 @@ import {
   Switch,
   Platform,
   StatusBar,
-  SafeAreaView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Logo from '../../components/Logo';

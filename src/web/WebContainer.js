@@ -4,8 +4,10 @@ import { useInjectWebStyles } from './WebStyles';
 import { setupWebAlertPolyfill } from './WebAlertPolyfill';
 import MobileAppWebWrapper from './MobileAppWebWrapper';
 import WebLandingPage from './landing/WebLandingPage';
+import RoleSelectionPage from './auth/RoleSelectionPage';
 import DoctorAuthPage from './auth/DoctorAuthPage';
 import NurseAuthPage from './auth/NurseAuthPage';
+import DoctorClaimProfilePage from './auth/DoctorClaimProfilePage';
 import DoctorWebPortal from './doctor/DoctorWebPortal';
 import NurseWebPortal from './nurse/NurseWebPortal';
 
@@ -31,6 +33,11 @@ export default function WebContainer({ children }) {
   // 'landing' | 'doctor-login' | 'doctor-register' | 'doctor-portal' | 'nurse-login' | 'nurse-register' | 'nurse-portal'
   const [webRoute, setWebRoute] = useState('landing');
 
+  // Manual mode override (null = auto based on viewport)
+  // 'desktop' = force desktop website mode
+  // 'mobile' = force mobile app UI interface mode
+  const [modeOverride, setModeOverride] = useState(null);
+
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
@@ -39,30 +46,17 @@ export default function WebContainer({ children }) {
     };
 
     window.addEventListener('resize', handleResize);
-    window.addEventListener('orientationchange', handleResize);
-    if (window.visualViewport) {
-      window.visualViewport.addEventListener('resize', handleResize);
-    }
-    return () => {
-      window.removeEventListener('resize', handleResize);
-      window.removeEventListener('orientationchange', handleResize);
-      if (window.visualViewport) {
-        window.visualViewport.removeEventListener('resize', handleResize);
-      }
-    };
+    return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  // Determine active presentation mode:
-  // - On mobile phone in regular mode: viewport width is <= 768px (typically 360px - 430px) -> show mobile App UI interface
-  // - On mobile phone when user taps checkmark for "Desktop site" in Google/Chrome:
-  //   mobile browser forces layout viewport to 980px or 1024px (windowWidth > 768px) -> show Web Application UI interface
-  // - On desktop/laptop browser: windowWidth > 768px -> show Web Application UI interface
-  const isDesktopMode = windowWidth > 768;
+  // Determine active presentation mode
+  const isAutoDesktop = windowWidth > 768;
+  const isDesktopMode = modeOverride !== null ? modeOverride === 'desktop' : isAutoDesktop;
 
-  // Render content according to active presentation mode
+  // Render content according to active route & viewport
   const renderWebContent = () => {
-    // 1. Mobile phone regular browser: Render mobile app application UI interface directly
-    if (!isDesktopMode) {
+    // If user specifically toggled "Phone App UI" or is on a phone browser while in a portal:
+    if (!isDesktopMode && (webRoute === 'doctor-portal' || webRoute === 'nurse-portal')) {
       return (
         <MobileAppWebWrapper>
           {children}
@@ -70,26 +64,37 @@ export default function WebContainer({ children }) {
       );
     }
 
-    // 2. Desktop website mode (Desktop computer or phone with "Desktop site" checkmark enabled)
     switch (webRoute) {
       case 'landing':
         return <WebLandingPage onNavigate={setWebRoute} />;
+      case 'role-signin':
+        return <RoleSelectionPage mode="signin" onNavigate={setWebRoute} />;
+      case 'role-signup':
+        return <RoleSelectionPage mode="signup" onNavigate={setWebRoute} />;
       case 'doctor-login':
+        return <DoctorAuthPage initialMode="signin" onNavigate={setWebRoute} />;
       case 'doctor-register':
-        return <DoctorAuthPage onNavigate={setWebRoute} />;
+        return <DoctorAuthPage initialMode="signup" onNavigate={setWebRoute} />;
+      case 'doctor-claim-profile':
+        return <DoctorClaimProfilePage onNavigate={setWebRoute} />;
       case 'nurse-login':
+        return <NurseAuthPage initialMode="signin" onNavigate={setWebRoute} />;
       case 'nurse-register':
-        return <NurseAuthPage onNavigate={setWebRoute} />;
+        return <NurseAuthPage initialMode="signup" onNavigate={setWebRoute} />;
       case 'doctor-portal':
-        return (
+        return isDesktopMode ? (
           <DoctorWebPortal onNavigateHome={() => setWebRoute('landing')} />
+        ) : (
+          <MobileAppWebWrapper>{children}</MobileAppWebWrapper>
         );
       case 'nurse-portal':
-        return (
+        return isDesktopMode ? (
           <NurseWebPortal
             onNavigateHome={() => setWebRoute('landing')}
             onLogout={() => setWebRoute('landing')}
           />
+        ) : (
+          <MobileAppWebWrapper>{children}</MobileAppWebWrapper>
         );
       default:
         return <WebLandingPage onNavigate={setWebRoute} />;

@@ -107,13 +107,13 @@ export default function AppointmentsScreen({ navigation, route }) {
   const [selectedDateItem, setSelectedDateItem] = useState(30); // 30 is Wed 30 (Today)
   const searchInputRef = useRef(null);
 
-  // Acceptance state tracking for Today's appointments (a1 Video confirmed, a2 In-Person confirmed)
+  // Acceptance state tracking for Today's appointments (a1 Video confirmed initially)
   const [acceptedMap, setAcceptedMap] = useState({
     a1: true,
-    a2: true,
   });
 
-  const handleAcceptAppointment = (id) => {
+  const handleAcceptAppointment = (itemOrId) => {
+    const id = typeof itemOrId === 'object' && itemOrId !== null ? itemOrId.id : itemOrId;
     setAcceptedMap((prev) => ({ ...prev, [id]: true }));
     setList((prev) => prev.map((a) => (a.id === id ? { ...a, status: 'confirmed' } : a)));
   };
@@ -224,7 +224,7 @@ export default function AppointmentsScreen({ navigation, route }) {
 
   const startAppointment = (appt) => {
     if (appt.type === 'Video') {
-      navigation.navigate('VideoConsultation', { patientId: appt.patientId, appointmentId: appt.id });
+      navigation.navigate('VideoConsultation', { patientId: appt.patientId, appointmentId: appt.id, appointment: appt });
     } else {
       navigation.navigate('Consultation', { patientId: appt.patientId, appointmentId: appt.id });
     }
@@ -611,7 +611,7 @@ export default function AppointmentsScreen({ navigation, route }) {
 
                   <TouchableOpacity
                     style={styles.cardAcceptBtn}
-                    onPress={() => handleAcceptAppointment(item.id)}
+                    onPress={() => handleAcceptAppointment(item)}
                     activeOpacity={0.85}
                   >
                     <Ionicons name="checkmark-circle-outline" size={16} color="#FFFFFF" />
@@ -685,34 +685,36 @@ export default function AppointmentsScreen({ navigation, route }) {
                         style={styles.cardJoinBtn}
                         onPress={() =>
                           navigation.navigate('AppointmentDetail', {
-                            appointment: item,
+                            appointment: { ...item, status: 'confirmed' },
                             mode: 'In-Person',
+                            justAccepted: true,
                           })
                         }
                         activeOpacity={0.85}
                       >
                         <Ionicons name="play" size={13} color="#FFFFFF" />
-                        <Text style={styles.cardJoinText}>Star Consult</Text>
+                        <Text style={styles.cardJoinText}>Start Consult</Text>
                       </TouchableOpacity>
                     ) : (
                       <TouchableOpacity
                         style={styles.cardJoinBtn}
                         onPress={() =>
                           navigation.navigate('AppointmentDetail', {
-                            appointment: item,
+                            appointment: { ...item, status: 'confirmed' },
                             mode: 'Video',
+                            justAccepted: true,
                           })
                         }
                         activeOpacity={0.85}
                       >
                         <Ionicons name="videocam" size={15} color="#FFFFFF" />
-                        <Text style={styles.cardJoinText}>Join</Text>
+                        <Text style={styles.cardJoinText}>Join Call</Text>
                       </TouchableOpacity>
                     )
                   ) : (
                     <TouchableOpacity
                       style={styles.cardAcceptBtn}
-                      onPress={() => handleAcceptAppointment(item.id)}
+                      onPress={() => handleAcceptAppointment(item)}
                       activeOpacity={0.85}
                     >
                       <Ionicons name="checkmark-circle-outline" size={16} color="#FFFFFF" />

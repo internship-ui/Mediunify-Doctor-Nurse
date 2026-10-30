@@ -87,6 +87,8 @@ export default function PatientProfileScreen({ route, navigation }) {
   const [documentRequest, setDocumentRequest] = useState('');
   const [followUpWizardVisible, setFollowUpWizardVisible] = useState(false);
   const [followUpStatus, setFollowUpStatus] = useState(null);
+  const [followUpDecision, setFollowUpDecision] = useState(null); // 'yes' | 'no' | null
+  const [needPayment, setNeedPayment] = useState('yes'); // 'yes' | 'no'
 
   // Scroll, layout position, and keyboard state for preventing overlap
   const scrollViewRef = useRef(null);
@@ -489,7 +491,7 @@ export default function PatientProfileScreen({ route, navigation }) {
                 <Text style={styles.followUpTitle}>Follow-up Requested</Text>
                 <Text style={styles.followUpSub}>
                   {followUpStatus
-                    ? `Follow-up planned on ${followUpStatus.date} (${followUpStatus.mode})`
+                    ? `Follow-up planned on ${followUpStatus.date} (${followUpStatus.mode}) · Payment: ${followUpStatus.needPayment === 'yes' ? 'Required' : 'Complimentary'}`
                     : `Schedule follow-up consultation and treatment plan for ${patient.name}?`}
                 </Text>
               </View>
@@ -497,17 +499,35 @@ export default function PatientProfileScreen({ route, navigation }) {
 
             <View style={styles.followUpButtonsRow}>
               <TouchableOpacity
-                style={styles.followUpYesBtn}
-                onPress={() => setFollowUpWizardVisible(true)}
+                style={[
+                  styles.followUpYesBtn,
+                  followUpDecision === 'yes' && styles.followUpOptionBtnSelected,
+                ]}
+                onPress={() => setFollowUpDecision('yes')}
                 activeOpacity={0.85}
               >
-                <Ionicons name="checkmark-circle" size={17} color="#FFFFFF" />
-                <Text style={styles.followUpYesText}>Yes</Text>
+                <Ionicons
+                  name={followUpDecision === 'yes' ? 'checkmark-circle' : 'checkmark-circle-outline'}
+                  size={17}
+                  color={followUpDecision === 'yes' ? '#FFFFFF' : '#071E42'}
+                />
+                <Text
+                  style={[
+                    styles.followUpYesText,
+                    followUpDecision === 'yes' && styles.followUpOptionTextSelected,
+                  ]}
+                >
+                  Yes
+                </Text>
               </TouchableOpacity>
 
               <TouchableOpacity
-                style={styles.followUpNoBtn}
+                style={[
+                  styles.followUpNoBtn,
+                  followUpDecision === 'no' && styles.followUpNoBtnSelected,
+                ]}
                 onPress={() => {
+                  setFollowUpDecision('no');
                   Alert.alert(
                     'Follow-up',
                     `Follow-up consultation is not required for ${patient.name} at this time.`
@@ -515,10 +535,101 @@ export default function PatientProfileScreen({ route, navigation }) {
                 }}
                 activeOpacity={0.8}
               >
-                <Ionicons name="close-circle-outline" size={17} color="#64748B" />
-                <Text style={styles.followUpNoText}>No</Text>
+                <Ionicons
+                  name={followUpDecision === 'no' ? 'close-circle' : 'close-circle-outline'}
+                  size={17}
+                  color={followUpDecision === 'no' ? '#FFFFFF' : '#64748B'}
+                />
+                <Text
+                  style={[
+                    styles.followUpNoText,
+                    followUpDecision === 'no' && { color: '#FFFFFF' },
+                  ]}
+                >
+                  No
+                </Text>
               </TouchableOpacity>
             </View>
+
+            {/* QUESTIONNAIRE: "for Next follow-up need payment" (Appears when Yes is clicked) */}
+            {followUpDecision === 'yes' && (
+              <View style={styles.paymentQuestionnaireSection}>
+                <View style={styles.paymentDivider} />
+
+                <View style={styles.paymentHeaderRow}>
+                  <View style={styles.paymentIconWrap}>
+                    <Ionicons name="card-outline" size={16} color="#071E42" />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.paymentQuestionTitle}>
+                      For Next follow-up need payment?
+                    </Text>
+                    <Text style={styles.paymentQuestionSub}>
+                      Select payment requirement for the upcoming visit
+                    </Text>
+                  </View>
+                </View>
+
+                {/* YES / NO TOGGLES */}
+                <View style={styles.paymentToggleRow}>
+                  <TouchableOpacity
+                    style={[
+                      styles.paymentChoiceBtn,
+                      needPayment === 'yes' && styles.paymentChoiceBtnActive,
+                    ]}
+                    onPress={() => setNeedPayment('yes')}
+                    activeOpacity={0.85}
+                  >
+                    <Ionicons
+                      name={needPayment === 'yes' ? 'checkmark-circle' : 'ellipse-outline'}
+                      size={15}
+                      color={needPayment === 'yes' ? '#FFFFFF' : '#071E42'}
+                    />
+                    <Text
+                      style={[
+                        styles.paymentChoiceBtnText,
+                        needPayment === 'yes' && styles.paymentChoiceBtnTextActive,
+                      ]}
+                    >
+                      Yes (Need Payment)
+                    </Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[
+                      styles.paymentChoiceBtn,
+                      needPayment === 'no' && styles.paymentChoiceBtnActive,
+                    ]}
+                    onPress={() => setNeedPayment('no')}
+                    activeOpacity={0.85}
+                  >
+                    <Ionicons
+                      name={needPayment === 'no' ? 'checkmark-circle' : 'ellipse-outline'}
+                      size={15}
+                      color={needPayment === 'no' ? '#FFFFFF' : '#071E42'}
+                    />
+                    <Text
+                      style={[
+                        styles.paymentChoiceBtnText,
+                        needPayment === 'no' && styles.paymentChoiceBtnTextActive,
+                      ]}
+                    >
+                      No (Free Follow-up)
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+
+                {/* SAVE BUTTON BELOW QUESTIONNAIRE */}
+                <TouchableOpacity
+                  style={styles.paymentSaveBtn}
+                  onPress={() => setFollowUpWizardVisible(true)}
+                  activeOpacity={0.88}
+                >
+                  <Ionicons name="checkmark-done" size={17} color="#FFFFFF" />
+                  <Text style={styles.paymentSaveBtnText}>Save</Text>
+                </TouchableOpacity>
+              </View>
+            )}
           </Card>
 
 
@@ -1004,6 +1115,7 @@ export default function PatientProfileScreen({ route, navigation }) {
           setFollowUpStatus({
             date: plan.followUpDate,
             mode: plan.followUpMode,
+            needPayment: needPayment,
           });
         }}
       />
@@ -1669,5 +1781,103 @@ const styles = StyleSheet.create({
     fontSize: 13.5,
     fontWeight: '700',
     color: '#64748B',
+  },
+  followUpOptionBtnSelected: {
+    backgroundColor: '#071E42',
+    borderColor: '#071E42',
+  },
+  followUpOptionTextSelected: {
+    color: '#FFFFFF',
+    fontWeight: '800',
+  },
+  followUpNoBtnSelected: {
+    backgroundColor: '#64748B',
+    borderColor: '#64748B',
+  },
+
+  /* Payment Questionnaire */
+  paymentQuestionnaireSection: {
+    marginTop: 12,
+  },
+  paymentDivider: {
+    height: 1,
+    backgroundColor: '#CBD5E1',
+    marginBottom: 12,
+  },
+  paymentHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 10,
+  },
+  paymentIconWrap: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+  },
+  paymentQuestionTitle: {
+    fontSize: 13.5,
+    fontWeight: '800',
+    color: '#071E42',
+  },
+  paymentQuestionSub: {
+    fontSize: 11,
+    color: '#64748B',
+    marginTop: 1,
+  },
+  paymentToggleRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginBottom: 12,
+  },
+  paymentChoiceBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 10,
+    paddingHorizontal: 8,
+    borderRadius: 10,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1.2,
+    borderColor: '#CBD5E1',
+  },
+  paymentChoiceBtnActive: {
+    backgroundColor: '#071E42',
+    borderColor: '#071E42',
+  },
+  paymentChoiceBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#071E42',
+  },
+  paymentChoiceBtnTextActive: {
+    color: '#FFFFFF',
+  },
+  paymentSaveBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: '#071E42',
+    borderRadius: 10,
+    paddingVertical: 12,
+    shadowColor: '#071E42',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  paymentSaveBtnText: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    letterSpacing: -0.2,
   },
 });

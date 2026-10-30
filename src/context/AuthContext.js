@@ -5,6 +5,7 @@ const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [authInitialRoute, setAuthInitialRoute] = useState('Splash');
 
   // Frontend-only mock. In a real app these would call your backend API.
   const register = (formData) => {
@@ -39,7 +40,7 @@ export function AuthProvider({ children }) {
       setTimeout(() => {
         setIsAuthenticated(true);
         resolve({ success: true });
-      }, 600);
+      }, 200);
     });
   };
 
@@ -48,10 +49,23 @@ export function AuthProvider({ children }) {
   // live and require an approved status before setting isAuthenticated.
   const skipVerification = () => setIsAuthenticated(true);
 
-  const logout = () => setIsAuthenticated(false);
+  const logout = () => {
+    setAuthInitialRoute('RoleSelectionScreen');
+    setIsAuthenticated(false);
+  };
 
   return (
-    <AuthContext.Provider value={{ isAuthenticated, register, login, logout, skipVerification }}>
+    <AuthContext.Provider
+      value={{
+        isAuthenticated,
+        authInitialRoute,
+        setAuthInitialRoute,
+        register,
+        login,
+        logout,
+        skipVerification,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );

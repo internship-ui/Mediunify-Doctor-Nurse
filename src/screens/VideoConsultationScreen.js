@@ -1,11 +1,11 @@
+// import { SafeAreaView } from 'react-native-safe-area-context';
 // import React, { useEffect, useState } from 'react';
 // import {
 //   View,
 //   Text,
 //   StyleSheet,
 //   TouchableOpacity,
-//   SafeAreaView,
-//   ScrollView,
+//   //   ScrollView,
 //   TextInput,
 //   Alert,
 // } from 'react-native';
@@ -599,7 +599,6 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
-  SafeAreaView,
   ScrollView,
   TextInput,
   Alert,
@@ -610,18 +609,34 @@ import {
   Dimensions,
   StatusBar,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import Logo from '../components/Logo';
 import { colors, spacing, typography, radius } from '../theme/colors';
-import { patients } from '../data/mockData';
+import { patients, appointments } from '../data/mockData';
+import VideoCallBottomSheet from '../components/VideoCallBottomSheet';
 
 export default function VideoConsultationScreen({ route, navigation }) {
-  const { patientId, appointmentId } = route.params || {};
+  const { patientId, appointmentId, appointment: passedAppt } = route.params || {};
   const patient = patients.find((p) => p.id === patientId) || patients[0];
+  const appointment =
+    passedAppt ||
+    appointments.find((a) => a.id === appointmentId) || {
+      id: appointmentId || 'appt-video',
+      patient: patient?.name,
+      age: patient?.age,
+      gender: patient?.gender,
+      reason: 'Video Consultation',
+      type: 'Video',
+    };
 
   const [seconds, setSeconds] = useState(0);
   const [micOn, setMicOn] = useState(true);
   const [camOn, setCamOn] = useState(true);
+  const [videoCallSheetVisible, setVideoCallSheetVisible] = useState(false);
+  const [sheetInitialStep, setSheetInitialStep] = useState(1);
+  const [finalCallDuration, setFinalCallDuration] = useState('00:00');
+  const [isCallEnded, setIsCallEnded] = useState(false);
 
   // Patient Details starts minimized so it does not cover the consultation area.
   const [panel, setPanel] = useState(null); // 'info' | 'perception' | 'chat' | null
@@ -800,7 +815,9 @@ export default function VideoConsultationScreen({ route, navigation }) {
       ]
     );
 
-    const t = setInterval(() => setSeconds((s) => s + 1), 1000);
+    const t = setInterval(() => {
+      setSeconds((s) => s + 1);
+    }, 1000);
 
     return () => clearInterval(t);
   }, []);
@@ -809,18 +826,54 @@ export default function VideoConsultationScreen({ route, navigation }) {
   const ss = String(seconds % 60).padStart(2, '0');
 
   const endCall = () => {
-    navigation.replace('Consultation', {
-      patientId: patient.id,
-      appointmentId,
-      perception,
-    });
+    setIsCallEnded(true);
+    const duration = `${mm}:${ss}`;
+    setFinalCallDuration(duration);
+    setSheetInitialStep(1);
+    setVideoCallSheetVisible(true);
+  };
+
+  const handleCompleteConsultation = (result) => {
+    setVideoCallSheetVisible(false);
+    if (navigation?.navigate) {
+      try {
+        navigation.navigate('Home');
+      } catch (err) {
+        navigation.navigate('MainTabs', { screen: 'Home' });
+      }
+    }
+  };
+
+  const handleCloseSheet = () => {
+    Alert.alert(
+      'Exit Consultation?',
+      'Do you want to discard unsaved notes and return to Appointments?',
+      [
+        { text: 'Keep Editing', style: 'cancel' },
+        {
+          text: 'Exit',
+          style: 'destructive',
+          onPress: () => {
+            setVideoCallSheetVisible(false);
+            navigation.navigate('Appointments');
+          },
+        },
+      ]
+    );
   };
 
   const openLabRequirement = () => {
-    // Pushed (not replaced) so the call screen — and its timer — stays live underneath.
-    navigation.navigate('TestRequirement', {
-      patientId: patient.id,
-    });
+    const duration = `${mm}:${ss}`;
+    setFinalCallDuration(duration);
+    setSheetInitialStep(3);
+    setVideoCallSheetVisible(true);
+  };
+
+  const openConsultationNotes = () => {
+    const duration = `${mm}:${ss}`;
+    setFinalCallDuration(duration);
+    setSheetInitialStep(1);
+    setVideoCallSheetVisible(true);
   };
 
   /*
@@ -1182,70 +1235,6 @@ export default function VideoConsultationScreen({ route, navigation }) {
           </View>
         ) : null}
 
-        {/* Patient Details button — ALWAYS visible above Perception/Lab Requirement */}
-        <View style={styles.patientDetailsButtonContainer}>
-          <TouchableOpacity
-            style={[
-              styles.patientDetailsButton,
-              panel === 'info' && styles.patientDetailsButtonActive,
-            ]}
-            onPress={togglePatientDetails}
-            activeOpacity={0.8}
-          >
-            <View style={styles.patientDetailsButtonLeft}>
-              <View style={styles.patientDetailsIcon}>
-                <Ionicons
-                  name="person-outline"
-                  size={18}
-                  color={
-                    panel === 'info'
-                      ? colors.white
-                      : '#071E42'
-                  }
-                />
-              </View>
-
-              <View>
-                <Text
-                  style={[
-                    styles.patientDetailsButtonText,
-                    panel === 'info' && {
-                      color: colors.white,
-                    },
-                  ]}
-                >
-                  Patient Details
-                </Text>
-
-                <Text
-                  style={[
-                    styles.patientDetailsButtonSubtext,
-                    panel === 'info' && {
-                      color: 'rgba(255,255,255,0.75)',
-                    },
-                  ]}
-                >
-                  View medical history & reports
-                </Text>
-              </View>
-            </View>
-
-            <Ionicons
-              name={
-                panel === 'info'
-                  ? 'chevron-up'
-                  : 'chevron-forward'
-              }
-              size={20}
-              color={
-                panel === 'info'
-                  ? colors.white
-                  : colors.textMuted
-              }
-            />
-          </TouchableOpacity>
-        </View>
-
         {/* Clinical perception / Consultation notes panel — jot down impressions without leaving the call */}
         {panel === 'perception' ? (
           <View
@@ -1536,40 +1525,84 @@ export default function VideoConsultationScreen({ route, navigation }) {
           </View>
         ) : null}
 
+        {/* Patient Details button — positioned with clean spacing above Consultation Notes & Lab Requirement */}
+        <View style={styles.patientDetailsButtonContainer}>
+          <TouchableOpacity
+            style={[
+              styles.patientDetailsButton,
+              panel === 'info' && styles.patientDetailsButtonActive,
+            ]}
+            onPress={togglePatientDetails}
+            activeOpacity={0.8}
+          >
+            <View style={styles.patientDetailsButtonLeft}>
+              <View style={styles.patientDetailsIcon}>
+                <Ionicons
+                  name="person-outline"
+                  size={18}
+                  color={
+                    panel === 'info'
+                      ? colors.white
+                      : '#071E42'
+                  }
+                />
+              </View>
+
+              <View>
+                <Text
+                  style={[
+                    styles.patientDetailsButtonText,
+                    panel === 'info' && {
+                      color: colors.white,
+                    },
+                  ]}
+                >
+                  Patient Details
+                </Text>
+
+                <Text
+                  style={[
+                    styles.patientDetailsButtonSubtext,
+                    panel === 'info' && {
+                      color: 'rgba(255,255,255,0.75)',
+                    },
+                  ]}
+                >
+                  View medical history & reports
+                </Text>
+              </View>
+            </View>
+
+            <Ionicons
+              name={
+                panel === 'info'
+                  ? 'chevron-up'
+                  : 'chevron-forward'
+              }
+              size={20}
+              color={
+                panel === 'info'
+                  ? colors.white
+                  : colors.textMuted
+              }
+            />
+          </TouchableOpacity>
+        </View>
+
         {/* Quick actions — available throughout the call */}
         <View style={styles.quickRow}>
           <TouchableOpacity
-            style={[
-              styles.quickChip,
-              panel === 'perception' &&
-              styles.quickChipActive,
-            ]}
-            onPress={() =>
-              setPanel(
-                panel === 'perception'
-                  ? null
-                  : 'perception'
-              )
-            }
+            style={styles.quickChip}
+            onPress={openConsultationNotes}
+            activeOpacity={0.8}
           >
             <Ionicons
               name="create-outline"
               size={15}
-              color={
-                panel === 'perception'
-                  ? colors.white
-                  : colors.textPrimary
-              }
+              color={colors.textPrimary}
             />
 
-            <Text
-              style={[
-                styles.quickChipText,
-                panel === 'perception' && {
-                  color: colors.white,
-                },
-              ]}
-            >
+            <Text style={styles.quickChipText}>
               Consultation Notes
             </Text>
           </TouchableOpacity>
@@ -1577,6 +1610,7 @@ export default function VideoConsultationScreen({ route, navigation }) {
           <TouchableOpacity
             style={styles.quickChip}
             onPress={openLabRequirement}
+            activeOpacity={0.8}
           >
             <Ionicons
               name="flask-outline"
@@ -1782,6 +1816,22 @@ export default function VideoConsultationScreen({ route, navigation }) {
             </View>
           </KeyboardAvoidingView>
         </Modal>
+
+        {/* ========================================================
+            VIDEO CALL CONSULTATION BOTTOM SHEET
+            (Opens when red end call button is pressed)
+        ======================================================== */}
+        <VideoCallBottomSheet
+          visible={videoCallSheetVisible}
+          onClose={handleCloseSheet}
+          appointment={appointment}
+          patient={patient}
+          callDuration={finalCallDuration}
+          initialNotes={perception}
+          initialStep={sheetInitialStep}
+          onNotesChange={(newNotes) => setPerception(newNotes)}
+          onComplete={handleCompleteConsultation}
+        />
       </SafeAreaView>
     </KeyboardAvoidingView>
   );
@@ -1977,7 +2027,7 @@ const styles = StyleSheet.create({
    */
   infoPanel: {
     position: 'absolute',
-    bottom: 218,
+    bottom: 195,
     left: 12,
     right: 12,
     maxHeight: 310,
@@ -2069,13 +2119,11 @@ const styles = StyleSheet.create({
 
   /*
    * Permanent Patient Details button.
-   * This stays above Perception and Lab Requirement.
+   * Positioned cleanly above Perception and Lab Requirement without overlap.
    */
   patientDetailsButtonContainer: {
-    position: 'absolute',
-    bottom: 163,
-    left: 12,
-    right: 12,
+    marginHorizontal: 12,
+    marginBottom: 10,
     zIndex: 14,
   },
 

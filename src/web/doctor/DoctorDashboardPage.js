@@ -1,5 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Modal, Platform } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+  TextInput,
+  Modal,
+  Platform,
+} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 export default function DoctorDashboardPage({
@@ -8,8 +17,9 @@ export default function DoctorDashboardPage({
   onStartConsultNotes,
   onViewPatientDetails,
   onViewFollowUpPatient,
+  onNavigateHome,
 }) {
-  // Dynamic screen measurement for responsive alignment on desktop site / phone
+  // Dynamic screen measurement for responsive alignment on desktop / tablet / phone
   const [windowWidth, setWindowWidth] = useState(() => {
     if (typeof window !== 'undefined') return window.innerWidth;
     return 1024;
@@ -26,19 +36,28 @@ export default function DoctorDashboardPage({
     };
   }, []);
 
-  const isNarrow = windowWidth < 1200;
+  const isNarrow = windowWidth < 1280;
 
-  // Filters & State
-  const [statsPeriod, setStatsPeriod] = useState('Week'); // 'Week' | 'Month' | 'Year'
-  const [diagnosesOrder, setDiagnosesOrder] = useState('Descending');
-  const [patientTrendPeriod, setPatientTrendPeriod] = useState('Week'); // 'Today' | 'Week' | 'Month'
-  const [scheduleView, setScheduleView] = useState('Today'); // 'Today' | 'This week'
-  const [scheduleChannelFilter, setScheduleChannelFilter] = useState('All'); // 'All' | 'In-Person' | 'Video'
+  // Dark / Light Mode State (as in reference HTML)
+  const [darkMode, setDarkMode] = useState(false);
+
+  // Timeframe and Filter States
+  const [statTimeframe, setStatTimeframe] = useState('Week'); // 'Week' | 'Month' | 'Year'
+  const [scheduleView, setScheduleView] = useState('today'); // 'today' | 'week'
+  const [scheduleFilter, setScheduleFilter] = useState('all'); // 'all' | 'in-person' | 'video'
   const [searchQuery, setSearchQuery] = useState('');
   const [showProfileDropdown, setShowProfileDropdown] = useState(false);
-  const [selectedPatientModal, setSelectedPatientModal] = useState(null);
 
-  // Attached Notification Popover State (Matching User Screenshot)
+  // Modals & Slide-over States
+  const [showPreviewModal, setShowPreviewModal] = useState(false);
+  const [selectedPatient, setSelectedPatient] = useState(null);
+  const [showConsultModal, setShowConsultModal] = useState(false);
+  const [activeConsultPatient, setActiveConsultPatient] = useState(null);
+  const [consultDiagnosisNotes, setConsultDiagnosisNotes] = useState('');
+  const [consultPrescription, setConsultPrescription] = useState('');
+  const [showPatientDossier, setShowPatientDossier] = useState(false);
+
+  // Notifications Popover State
   const [showNotificationPopover, setShowNotificationPopover] = useState(false);
   const [notifActiveTab, setNotifActiveTab] = useState('Inbox'); // 'Inbox' | 'General'
   const [unreadCount, setUnreadCount] = useState(4);
@@ -103,82 +122,177 @@ export default function DoctorDashboardPage({
 
   // Statistics Data
   const statsData = {
-    Week: { newPatients: 8, newDiff: '-2', totalPatients: 42, totalDiff: '+5', timeToAppt: '25 min', timeDiff: '-2%', pss: '2.96', pssDiff: '+1.4%' },
-    Month: { newPatients: 36, newDiff: '+8', totalPatients: 168, totalDiff: '+24', timeToAppt: '22 min', timeDiff: '-5%', pss: '2.98', pssDiff: '+2.1%' },
-    Year: { newPatients: 420, newDiff: '+45', totalPatients: 1840, totalDiff: '+310', timeToAppt: '19 min', timeDiff: '-8%', pss: '2.99', pssDiff: '+3.5%' },
+    Week: {
+      newPatients: 8,
+      newDiff: '2',
+      totalPatients: 42,
+      totalDiff: '5',
+      timeToAppt: '25',
+      timeDiff: '2%',
+      pss: '2.96',
+      pssDiff: '1.4%',
+    },
+    Month: {
+      newPatients: 36,
+      newDiff: '8',
+      totalPatients: 168,
+      totalDiff: '24',
+      timeToAppt: '22',
+      timeDiff: '5%',
+      pss: '2.98',
+      pssDiff: '2.1%',
+    },
+    Year: {
+      newPatients: 420,
+      newDiff: '45',
+      totalPatients: 1840,
+      totalDiff: '310',
+      timeToAppt: '19',
+      timeDiff: '8%',
+      pss: '2.99',
+      pssDiff: '3.5%',
+    },
   };
 
-  const currentStats = statsData[statsPeriod] || statsData.Week;
+  const currentStats = statsData[statTimeframe] || statsData.Week;
 
-  // Diagnoses Breakdown
-  const diagnosesList = [
-    { code: 'HTN', label: 'Hypertension', pct: 31, height: 140 },
-    { code: 'Dyslipidemia', label: 'Dyslipidemia', pct: 23, height: 104 },
-    { code: 'CAD/Angina', label: 'CAD / Angina', pct: 20, height: 90 },
-    { code: 'Heart Failure', label: 'Heart Failure', pct: 17, height: 76 },
-    { code: 'Arrhythmias', label: 'Arrhythmias', pct: 11, height: 50 },
-    { code: 'Post-MI/PCI', label: 'Post-MI / PCI', pct: 9, height: 40 },
-    { code: 'Other', label: 'Other', pct: 6, height: 26 },
+  // Next Appointments List (as in HTML Reference)
+  const nextAppointmentsData = [
+    {
+      id: 1,
+      time: '10:30 AM',
+      patientName: 'Rohan Mehta',
+      patientDetails: '34 yrs • Male',
+      bloodGroup: 'B+',
+      condition: 'Hypertension & BP Review',
+      type: 'Video',
+      status: 'Ready / Waiting',
+      statusColor: '#10B981',
+      initials: 'RM',
+      avatarBg: '#0B1629',
+      avatarColor: '#00B894',
+    },
+    {
+      id: 2,
+      time: '11:00 AM',
+      patientName: 'Andre Merritt',
+      patientDetails: '27 yrs • Male',
+      bloodGroup: 'O+',
+      condition: 'New Patient • Cardiac Consult',
+      type: 'Video',
+      status: 'Next in Queue',
+      statusColor: '#00B894',
+      initials: 'AM',
+      avatarBg: '#0B1629',
+      avatarColor: '#00B894',
+    },
+    {
+      id: 3,
+      time: '11:30 AM',
+      patientName: 'Meera Nair',
+      patientDetails: '48 yrs • Female',
+      bloodGroup: 'A+',
+      condition: 'Chest Discomfort Review • Follow-up',
+      type: 'In-Person',
+      status: 'Waiting in Clinic',
+      statusColor: '#F59E0B',
+      initials: 'MN',
+      avatarBg: '#0B1629',
+      avatarColor: '#00B894',
+    },
   ];
 
-  // Patients List (Bottom Center Card)
-  const patientsListData = [
-    { id: 'p1', name: 'Diane Cruz', gender: 'Female', age: 54, initials: 'DC', avatarBg: '#E0F2FE', avatarColor: '#0284C7', reason: 'Follow-up • Dyslipidemia', time: '09:30 AM', phone: '+91 98451 88201' },
-    { id: 'p2', name: 'Roosevelt Chase', gender: 'Male', age: 35, initials: 'RC', avatarBg: '#E6F8F4', avatarColor: '#00B894', reason: 'Routine ECG Review', time: '03:00 PM', phone: '+91 97412 33419' },
-    { id: 'p3', name: 'Jakub Tucker', gender: 'Male', age: 43, initials: 'JT', avatarBg: '#F1F5F9', avatarColor: '#475569', reason: 'Post-MI Rehabilitation', time: '10:15 AM', phone: '+91 98860 11984' },
-    { id: 'p4', name: 'Tiffany Fowler', gender: 'Female', age: 38, initials: 'TF', avatarBg: '#FEE2E2', avatarColor: '#DC2626', reason: 'Arrhythmia Palpitations', time: '11:45 AM', phone: '+91 99014 55102' },
-    { id: 'p5', name: 'Andre Merritt', gender: 'Male', age: 27, initials: 'AM', avatarBg: '#E6F8F4', avatarColor: '#00B894', reason: 'New Patient • Cardiac Consult', time: '11:00 AM', phone: '+91 98452 77013' },
+  // Weekly New Patients Trend Data (Mon to Sun: [3, 5, 8, 4, 6, 2, 1])
+  const weeklyTrends = [
+    { day: 'Mon', value: 3 },
+    { day: 'Tue', value: 5 },
+    { day: 'Wed', value: 8 },
+    { day: 'Thu', value: 4 },
+    { day: 'Fri', value: 6 },
+    { day: 'Sat', value: 2 },
+    { day: 'Sun', value: 1 },
+  ];
+  const maxTrendValue = 10;
+
+  // Patients Follow-up list (as in HTML reference)
+  const followupPatients = [
+    {
+      id: 'f1',
+      name: 'Diane Cruz',
+      details: '54 yrs • Female • B+ • ID #DC-991',
+      timeBadge: 'Tomorrow',
+      type: 'In-Person',
+      scheduledTime: 'Tomorrow, 09:30 AM',
+      diagnosis: 'Dyslipidemia follow-up & statin dose titration',
+      bloodGroup: 'B+',
+      initials: 'DC',
+      avatarBg: '#0B1629',
+      avatarColor: '#00B894',
+    },
+    {
+      id: 'f2',
+      name: 'Liam Gallagher',
+      details: '42 yrs • Male • A+ • ID #LG-528',
+      timeBadge: 'In 3 days',
+      type: 'Video',
+      scheduledTime: 'In 3 days, 11:15 AM',
+      diagnosis: 'Blood Pressure Monitoring & Cardio Check',
+      bloodGroup: 'A+',
+      initials: 'LG',
+      avatarBg: '#0B1629',
+      avatarColor: '#00B894',
+    },
+    {
+      id: 'f3',
+      name: 'Jakub Tucker',
+      details: '43 yrs • Male • B+ • ID #JT-331',
+      timeBadge: 'Today',
+      type: 'In-Person',
+      scheduledTime: 'Today, 10:15 AM',
+      diagnosis: 'Post-MI Rehabilitation & Cardiac Conditioning',
+      bloodGroup: 'B+',
+      initials: 'JT',
+      avatarBg: '#0B1629',
+      avatarColor: '#00B894',
+    },
   ];
 
-  const filteredPatientsList = patientsListData.filter(p =>
-    p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    p.reason.toLowerCase().includes(searchQuery.toLowerCase())
-  );
-
-  // Dedicated Patient Consultations Schedule (Pure patient appointments only - no admin/team/surgeries)
-  const scheduleConsultations = [
+  // Schedule Timeline Stream (as in HTML reference)
+  const scheduleTimelineData = [
     {
       id: 'sc-1',
       appointmentId: 'apt-today-rohan',
       time: '10:30 AM',
       timeRange: '10:30 AM — 11:00 AM',
       name: 'Rohan Mehta',
-      patient: 'Rohan Mehta',
-      age: 34,
       gender: 'Male',
+      age: 34,
       initials: 'RM',
-      avatarBg: '#E0F2FE',
-      avatarColor: '#0284C7',
+      avatarBg: '#0D9488',
+      avatarColor: '#FFFFFF',
       type: 'Video',
       reason: 'Hypertension & BP Review',
       room: 'MediUnify Telehealth Video Room #1',
       status: 'Ready / Waiting',
-      phone: '+91 98860 11234',
       bloodGroup: 'B+',
-      allergies: 'None recorded',
-      medications: 'Amlodipine 5mg',
       isNext: false,
     },
     {
       id: 'sc-2',
-      appointmentId: 'apt-today-2',
+      appointmentId: 'apt-today-andre',
       time: '11:00 AM',
       timeRange: '11:00 AM — 11:30 AM',
       name: 'Andre Merritt',
-      patient: 'Andre Merritt',
-      age: 27,
       gender: 'Male',
+      age: 27,
       initials: 'AM',
-      avatarBg: '#E6F8F4',
+      avatarBg: '#0B1629',
       avatarColor: '#00B894',
       type: 'Video',
       reason: 'New Patient • Cardiac Consult',
       room: 'MediUnify Telehealth Video Room #2',
       status: 'Next in Queue',
-      phone: '+91 98452 77013',
       bloodGroup: 'O+',
-      allergies: 'Penicillin',
-      medications: 'None recorded',
       isNext: true,
     },
     {
@@ -187,20 +301,16 @@ export default function DoctorDashboardPage({
       time: '11:30 AM',
       timeRange: '11:30 AM — 12:00 PM',
       name: 'Meera Nair',
-      patient: 'Meera Nair',
-      age: 48,
       gender: 'Female',
+      age: 48,
       initials: 'MN',
-      avatarBg: '#FEF3C7',
-      avatarColor: '#D97706',
+      avatarBg: '#0D9488',
+      avatarColor: '#FFFFFF',
       type: 'In-Person',
       reason: 'Chest Discomfort Review • Follow-up',
       room: 'Room 302, OPD Wing A',
       status: 'Waiting in Clinic',
-      phone: '+91 98451 44521',
       bloodGroup: 'A+',
-      allergies: 'Sulfa drugs',
-      medications: 'Atorvastatin 10mg',
       isNext: false,
     },
     {
@@ -209,42 +319,34 @@ export default function DoctorDashboardPage({
       time: '01:00 PM',
       timeRange: '01:00 PM — 01:30 PM',
       name: 'Jakub Tucker',
-      patient: 'Jakub Tucker',
-      age: 43,
       gender: 'Male',
+      age: 43,
       initials: 'JT',
-      avatarBg: '#F1F5F9',
-      avatarColor: '#475569',
+      avatarBg: '#0B1629',
+      avatarColor: '#00B894',
       type: 'In-Person',
       reason: 'Post-MI Rehabilitation & ECG Check',
       room: 'Room 302, OPD Wing A',
       status: 'Confirmed',
-      phone: '+91 98860 11984',
       bloodGroup: 'B+',
-      allergies: 'None',
-      medications: 'Metoprolol 25mg',
       isNext: false,
     },
     {
       id: 'sc-5',
-      appointmentId: 'apt-today-1',
+      appointmentId: 'apt-today-priya',
       time: '02:30 PM',
       timeRange: '02:30 PM — 03:00 PM',
       name: 'Priya Sharma',
-      patient: 'Priya Sharma',
-      age: 35,
       gender: 'Female',
+      age: 35,
       initials: 'PS',
-      avatarBg: '#EDE9FE',
-      avatarColor: '#7C3AED',
+      avatarBg: '#0D9488',
+      avatarColor: '#FFFFFF',
       type: 'In-Person',
       reason: 'Seasonal Allergy & Lipid Re-evaluation',
       room: 'Room 302, OPD Wing A',
       status: 'Confirmed',
-      phone: '+91 98860 33412',
       bloodGroup: 'O+',
-      allergies: 'None known',
-      medications: 'None recorded',
       isNext: false,
     },
     {
@@ -253,33 +355,51 @@ export default function DoctorDashboardPage({
       time: '03:00 PM',
       timeRange: '03:00 PM — 03:30 PM',
       name: 'Roosevelt Chase',
-      patient: 'Roosevelt Chase',
-      age: 35,
       gender: 'Male',
+      age: 35,
       initials: 'RC',
-      avatarBg: '#E6F8F4',
+      avatarBg: '#0B1629',
       avatarColor: '#00B894',
       type: 'Video',
       reason: 'Routine ECG Review & Vitals Check',
       room: 'MediUnify Telehealth Video Room #1',
       status: 'Scheduled',
-      phone: '+91 97412 33419',
       bloodGroup: 'AB+',
-      allergies: 'Aspirin',
-      medications: 'None recorded',
       isNext: false,
     },
   ];
 
-  const inPersonCount = scheduleConsultations.filter(i => i.type === 'In-Person').length;
-  const videoCount = scheduleConsultations.filter(i => i.type === 'Video').length;
+  const inPersonTimelineCount = scheduleTimelineData.filter(i => i.type === 'In-Person').length;
+  const videoTimelineCount = scheduleTimelineData.filter(i => i.type === 'Video').length;
 
-  const filteredSchedule = scheduleConsultations.filter(item => {
-    if (scheduleChannelFilter === 'All') return true;
-    return item.type.toLowerCase() === scheduleChannelFilter.toLowerCase();
+  const filteredTimeline = scheduleTimelineData.filter(item => {
+    if (scheduleFilter === 'all') return true;
+    if (scheduleFilter === 'in-person') return item.type === 'In-Person';
+    if (scheduleFilter === 'video') return item.type === 'Video';
+    return true;
   });
 
-  // Direct to right side slide page popup in appointments page
+  // Action Handlers
+  const handleOpenPatientPreview = (patient) => {
+    setSelectedPatient(patient);
+    setShowPreviewModal(true);
+  };
+
+  const handleStartConsultationModal = (patient) => {
+    setActiveConsultPatient(patient);
+    setConsultDiagnosisNotes('');
+    setConsultPrescription('');
+    setShowConsultModal(true);
+  };
+
+  const handleDirectStartConsult = (appointment) => {
+    if (onStartConsultation) {
+      onStartConsultation(appointment);
+    } else if (setActiveTab) {
+      setActiveTab('consultation');
+    }
+  };
+
   const handleViewPatientDetails = (appointment) => {
     if (onViewPatientDetails) {
       onViewPatientDetails(appointment);
@@ -288,105 +408,106 @@ export default function DoctorDashboardPage({
     }
   };
 
-  // Direct to join video call for video consultations
-  const handleJoinCall = (appointment) => {
-    if (onStartConsultation) {
-      onStartConsultation(appointment);
-    } else if (setActiveTab) {
-      setActiveTab('consultation');
-    }
-  };
-
-  // Direct to appointments page with particular patient details for in-person consultations
-  const handleStartInPersonConsult = (appointment) => {
-    handleViewPatientDetails(appointment);
-  };
-
-  const handleAppointmentClick = (appointment) => {
-    handleViewPatientDetails(appointment);
-  };
-
-  // Direct to follow-up page for the selected patient
-  const handleFollowUpPatientClick = (patient) => {
-    if (onViewFollowUpPatient) {
-      onViewFollowUpPatient(patient);
-    } else if (setActiveTab) {
-      setActiveTab('followups');
-    }
+  // Color Theme Variables
+  const theme = {
+    bg: darkMode ? '#070F1D' : '#F8FAFC',
+    cardBg: darkMode ? '#0B1629' : '#FFFFFF',
+    cardBorder: darkMode ? '#1E293B' : '#E2E8F0',
+    textPrimary: darkMode ? '#F1F5F9' : '#0F1F38',
+    textSecondary: darkMode ? '#94A3B8' : '#64748B',
+    mutedBg: darkMode ? '#0F1F38' : '#F1F5F9',
+    subtleBorder: darkMode ? '#1E293B' : '#E2E8F0',
   };
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: theme.bg }]}>
       {/* ============================================================== */}
-      {/* 1. TOP BAR: SEARCH PILL + NOTIFICATIONS + DOCTOR PROFILE CHIP */}
+      {/* 1. TOP HEADER (Search, Dark Mode, Mail, Notifications, Profile)*/}
       {/* ============================================================== */}
-      <View style={styles.topBar}>
-        {/* Search Pill Input */}
-        <View style={styles.searchPill}>
-          <Ionicons name="search-outline" size={18} color="#64748B" style={styles.searchIcon} />
+      <View style={[styles.topBar, { backgroundColor: theme.cardBg, borderBottomColor: theme.cardBorder }]}>
+        {/* Search Bar with Teal Accent */}
+        <View style={[styles.searchPill, darkMode && styles.searchPillDark]}>
+          <Ionicons name="search-outline" size={19} color="#0D9488" style={styles.searchIcon} />
           <TextInput
-            style={styles.searchInput}
+            style={[styles.searchInput, { color: theme.textPrimary }]}
             placeholder="Search patients, diagnoses, appointments..."
-            placeholderTextColor="#94A3B8"
+            placeholderTextColor={darkMode ? '#64748B' : '#94A3B8'}
             value={searchQuery}
             onChangeText={setSearchQuery}
           />
           {searchQuery.length > 0 && (
-            <TouchableOpacity onPress={() => setSearchQuery('')} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+            <TouchableOpacity onPress={() => setSearchQuery('')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
               <Ionicons name="close-circle" size={16} color="#94A3B8" />
             </TouchableOpacity>
           )}
         </View>
 
-        {/* Right Actions: Email Button + Notification Bell + Doctor Profile */}
+        {/* Header Action Controls */}
         <View style={styles.topRightGroup}>
-          {/* Small Email Button -> Direct to Email Page */}
+          {/* Dark / Light Mode Toggle Button */}
           <TouchableOpacity
-            style={styles.topEmailButton}
-            onPress={() => {
-              if (setActiveTab) setActiveTab('email');
-            }}
-            activeOpacity={0.7}
-            title="Messages & Email Communications"
+            style={[styles.headerIconBtn, { backgroundColor: theme.mutedBg }]}
+            onPress={() => setDarkMode(!darkMode)}
+            activeOpacity={0.75}
+            accessibilityLabel="Toggle Dark/Light Mode"
           >
-            <Ionicons name="mail-outline" size={19} color="#081E3E" />
+            <Ionicons
+              name={darkMode ? 'sunny-outline' : 'moon-outline'}
+              size={19}
+              color="#0D9488"
+            />
           </TouchableOpacity>
 
-          {/* Notification Bell Button with Attached Popover */}
+          {/* Mail / Messages Button */}
+          <TouchableOpacity
+            style={[styles.headerIconBtn, { backgroundColor: theme.mutedBg }]}
+            onPress={() => {
+              if (typeof window !== 'undefined') {
+                window.open('https://mail.google.com/mail/?view=cm&fs=1&to=', '_blank');
+              }
+            }}
+            activeOpacity={0.75}
+            accessibilityLabel="Compose Email"
+          >
+            <Ionicons name="mail-outline" size={19} color={theme.textSecondary} />
+          </TouchableOpacity>
+
+          {/* Notifications Button with Animated Teal Badge */}
           <View style={{ position: 'relative', zIndex: 9999 }}>
             <TouchableOpacity
-              style={[styles.bellButton, showNotificationPopover && styles.bellButtonActive]}
+              style={[
+                styles.headerIconBtn,
+                { backgroundColor: theme.mutedBg },
+                showNotificationPopover && styles.bellBtnActive,
+              ]}
               onPress={() => {
                 setShowNotificationPopover(prev => !prev);
                 setShowProfileDropdown(false);
               }}
-              activeOpacity={0.7}
+              activeOpacity={0.75}
             >
               <Ionicons
                 name={showNotificationPopover ? 'notifications' : 'notifications-outline'}
-                size={20}
-                color={showNotificationPopover ? '#0284C7' : '#081E3E'}
+                size={19}
+                color={showNotificationPopover ? '#0D9488' : theme.textSecondary}
               />
               {unreadCount > 0 && (
-                <View style={styles.bellBadge}>
-                  <Text style={styles.bellBadgeText}>{unreadCount}</Text>
-                </View>
+                <View style={styles.notifBadgeDot} />
               )}
             </TouchableOpacity>
 
-            {/* Notification Popover Dropdown Card (attached directly to notify button) */}
+            {/* Notification Popover Dropdown Card */}
             {showNotificationPopover && (
-              <View style={styles.notifPopoverCard}>
-                {/* Header Row */}
+              <View style={[styles.notifPopoverCard, { backgroundColor: theme.cardBg, borderColor: theme.cardBorder }]}>
                 <View style={styles.notifHeaderRow}>
-                  <Text style={styles.notifTitle}>Notifications</Text>
+                  <Text style={[styles.notifTitle, { color: theme.textPrimary }]}>Notifications</Text>
                   <TouchableOpacity onPress={handleMarkAllAsRead} activeOpacity={0.7}>
                     <Text style={styles.notifMarkAllText}>Mark all as read</Text>
                   </TouchableOpacity>
                 </View>
 
-                {/* Sub-tabs Row: Inbox [4] | General + Settings Gear */}
-                <View style={styles.notifTabsRow}>
+                {/* Sub-tabs Row */}
+                <View style={[styles.notifTabsRow, { borderBottomColor: theme.subtleBorder }]}>
                   <View style={styles.notifTabsLeft}>
                     <TouchableOpacity
                       style={[styles.notifTabBtn, notifActiveTab === 'Inbox' && styles.notifTabBtnActive]}
@@ -413,7 +534,6 @@ export default function DoctorDashboardPage({
                       </Text>
                     </TouchableOpacity>
                   </View>
-
                   <TouchableOpacity style={styles.notifSettingsBtn} activeOpacity={0.7}>
                     <Ionicons name="settings-outline" size={16} color="#64748B" />
                   </TouchableOpacity>
@@ -422,25 +542,20 @@ export default function DoctorDashboardPage({
                 {/* Notifications List */}
                 <ScrollView style={styles.notifListScroll} showsVerticalScrollIndicator={false}>
                   {notificationsList.map(notif => (
-                    <View key={notif.id} style={styles.notifItemRow}>
-                      {/* Avatar */}
+                    <View key={notif.id} style={[styles.notifItemRow, { borderBottomColor: theme.subtleBorder }]}>
                       <View style={[styles.notifAvatarBox, { backgroundColor: notif.avatarBg }]}>
                         <Text style={[styles.notifAvatarText, { color: notif.avatarColor }]}>
                           {notif.initials}
                         </Text>
                       </View>
-
-                      {/* Content Column */}
                       <View style={styles.notifContentCol}>
                         <View style={styles.notifTextAndDotRow}>
-                          <Text style={styles.notifItemName} numberOfLines={2}>
+                          <Text style={[styles.notifItemName, { color: theme.textPrimary }]} numberOfLines={2}>
                             {notif.name}
                           </Text>
                           {notif.unread && <View style={styles.notifUnreadDot} />}
                         </View>
                         <Text style={styles.notifItemSub}>{notif.sub}</Text>
-
-                        {/* Action Buttons for Anna (Decline / Accept) */}
                         {notif.hasActions && (
                           <View style={styles.notifActionButtonsRow}>
                             <TouchableOpacity
@@ -459,8 +574,6 @@ export default function DoctorDashboardPage({
                             </TouchableOpacity>
                           </View>
                         )}
-
-                        {/* Attachment pill for Jason (📎 Work examples.pdf) */}
                         {notif.attachment && (
                           <View style={styles.notifAttachmentPill}>
                             <Ionicons name="attach" size={14} color="#64748B" />
@@ -471,30 +584,14 @@ export default function DoctorDashboardPage({
                     </View>
                   ))}
                 </ScrollView>
-
-                {/* Footer preview row: small stacked avatars (+2) */}
-                <View style={styles.notifFooterRow}>
-                  <View style={styles.notifAvatarStack}>
-                    <View style={[styles.notifMiniAvatar, { backgroundColor: '#FEE2E2', zIndex: 3 }]}>
-                      <Text style={{ fontSize: 9, fontWeight: '700', color: '#DC2626' }}>TM</Text>
-                    </View>
-                    <View style={[styles.notifMiniAvatar, { backgroundColor: '#DCFCE7', marginLeft: -6, zIndex: 2 }]}>
-                      <Text style={{ fontSize: 9, fontWeight: '700', color: '#16A34A' }}>AN</Text>
-                    </View>
-                    <View style={[styles.notifMiniAvatar, { backgroundColor: '#FEF3C7', marginLeft: -6, zIndex: 1 }]}>
-                      <Text style={{ fontSize: 9, fontWeight: '700', color: '#D97706' }}>JS</Text>
-                    </View>
-                    <Text style={styles.notifAvatarMoreText}>+2</Text>
-                  </View>
-                </View>
               </View>
             )}
           </View>
 
-          {/* Doctor Profile Pill with Dropdown */}
+          {/* Doctor Profile Header Pill */}
           <View style={{ position: 'relative' }}>
             <TouchableOpacity
-              style={styles.doctorProfilePill}
+              style={[styles.doctorProfilePill, { borderColor: theme.cardBorder }]}
               onPress={() => setShowProfileDropdown(!showProfileDropdown)}
               activeOpacity={0.8}
             >
@@ -502,15 +599,15 @@ export default function DoctorDashboardPage({
                 <Text style={styles.doctorAvatarInitials}>RA</Text>
               </View>
               <View style={styles.doctorMetaTextCol}>
-                <Text style={styles.doctorNameText}>Dr. Robert Anderson</Text>
+                <Text style={[styles.doctorNameText, { color: theme.textPrimary }]}>Dr. Robert Anderson</Text>
                 <Text style={styles.doctorRoleText}>Cardiologist</Text>
               </View>
-              <Ionicons name="chevron-down" size={14} color="#64748B" />
+              <Ionicons name="chevron-down" size={14} color={theme.textSecondary} />
             </TouchableOpacity>
 
             {/* Profile Dropdown Menu */}
             {showProfileDropdown && (
-              <View style={styles.profileDropdownMenu}>
+              <View style={[styles.profileDropdownMenu, { backgroundColor: theme.cardBg, borderColor: theme.cardBorder }]}>
                 <TouchableOpacity
                   style={styles.dropdownMenuItem}
                   onPress={() => {
@@ -518,8 +615,8 @@ export default function DoctorDashboardPage({
                     if (setActiveTab) setActiveTab('profile');
                   }}
                 >
-                  <Ionicons name="person-outline" size={16} color="#081E3E" />
-                  <Text style={styles.dropdownMenuText}>My Profile</Text>
+                  <Ionicons name="person-outline" size={16} color="#0D9488" />
+                  <Text style={[styles.dropdownMenuText, { color: theme.textPrimary }]}>My Profile</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity
@@ -529,15 +626,30 @@ export default function DoctorDashboardPage({
                     if (setActiveTab) setActiveTab('availability');
                   }}
                 >
-                  <Ionicons name="time-outline" size={16} color="#081E3E" />
-                  <Text style={styles.dropdownMenuText}>Availability</Text>
+                  <Ionicons name="time-outline" size={16} color="#0D9488" />
+                  <Text style={[styles.dropdownMenuText, { color: theme.textPrimary }]}>Availability</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity
-                  style={[styles.dropdownMenuItem, { borderTopWidth: 1, borderTopColor: '#F1F5F9' }]}
+                  style={styles.dropdownMenuItem}
                   onPress={() => {
                     setShowProfileDropdown(false);
-                    alert('Logged out from clinician dashboard.');
+                    setShowPatientDossier(true);
+                  }}
+                >
+                  <Ionicons name="folder-outline" size={16} color="#0D9488" />
+                  <Text style={[styles.dropdownMenuText, { color: theme.textPrimary }]}>Patient Dossiers</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.dropdownMenuItem, { borderTopWidth: 1, borderTopColor: theme.subtleBorder }]}
+                  onPress={() => {
+                    setShowProfileDropdown(false);
+                    if (onNavigateHome) {
+                      onNavigateHome();
+                    } else if (setActiveTab) {
+                      setActiveTab('landing');
+                    }
                   }}
                 >
                   <Ionicons name="log-out-outline" size={16} color="#EF4444" />
@@ -550,7 +662,7 @@ export default function DoctorDashboardPage({
       </View>
 
       {/* ============================================================== */}
-      {/* 2. MAIN DASHBOARD CONTENT: TWO-COLUMN LAYOUT                   */}
+      {/* 2. MAIN SCROLLABLE DASHBOARD VIEW                              */}
       {/* ============================================================== */}
       <ScrollView
         style={styles.scrollViewport}
@@ -559,91 +671,98 @@ export default function DoctorDashboardPage({
       >
         <View style={[styles.dashboardGrid, isNarrow && styles.dashboardGridNarrow]}>
           {/* ========================================================== */}
-          {/* LEFT / CENTER COLUMN                                       */}
+          {/* LEFT MAIN COLUMN: Statistics, Next Appts, Analytics        */}
           {/* ========================================================== */}
           <View style={[styles.leftColumn, isNarrow && styles.leftColumnNarrow]}>
             {/* -------------------------------------------------------- */}
-            {/* CARD 1: STATISTICS                                      */}
+            {/* CARD 1: STATISTICS (4 Metric Cards Grid)                 */}
             {/* -------------------------------------------------------- */}
-            <View style={styles.cardContainer}>
+            <View style={[styles.cardContainer, { backgroundColor: theme.cardBg, borderColor: theme.cardBorder }]}>
               <View style={styles.cardHeaderRow}>
-                <Text style={styles.cardMainHeading}>Statistics</Text>
-                <View style={styles.periodPillGroup}>
-                  {['Week', 'Month', 'Year'].map(period => (
-                    <TouchableOpacity
-                      key={period}
-                      style={[
-                        styles.periodBtn,
-                        statsPeriod === period && styles.periodBtnActive,
-                      ]}
-                      onPress={() => setStatsPeriod(period)}
-                      activeOpacity={0.8}
-                    >
-                      <Text
+                <Text style={[styles.cardMainHeading, { color: theme.textPrimary }]}>Statistics</Text>
+                {/* Timeframe Selector: Week | Month | Year */}
+                <View style={[styles.periodPillGroup, { backgroundColor: theme.mutedBg }]}>
+                  {['Week', 'Month', 'Year'].map(period => {
+                    const isActive = statTimeframe === period;
+                    return (
+                      <TouchableOpacity
+                        key={period}
                         style={[
-                          styles.periodBtnText,
-                          statsPeriod === period && styles.periodBtnTextActive,
+                          styles.periodBtn,
+                          isActive && styles.periodBtnActive,
                         ]}
+                        onPress={() => setStatTimeframe(period)}
+                        activeOpacity={0.8}
                       >
-                        {period}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
+                        <Text
+                          style={[
+                            styles.periodBtnText,
+                            isActive && styles.periodBtnTextActive,
+                          ]}
+                        >
+                          {period}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
                 </View>
               </View>
 
-              {/* 4 Stat Metric Cards in Teal & Navy */}
-              <View style={[styles.statCardsRow, isNarrow && styles.statCardsRowNarrow]}>
-                {/* Metric 1: New patients (HIGHLIGHTED TEAL CARD) */}
-                <View style={[styles.statBox, styles.statBoxTealHighlight, isNarrow && styles.statBoxNarrow]}>
+              {/* 4 Stat Cards Grid */}
+              <View style={styles.statCardsGrid}>
+                {/* Card 1: New Patients (Teal Highlighted Card as per Reference) */}
+                <View style={styles.statBoxTealHighlight}>
                   <View style={styles.statBoxTopRow}>
-                    <Text style={styles.statNumberTeal}>{currentStats.newPatients}</Text>
-                    <View style={styles.pillBadgeTeal}>
-                      <Ionicons name="arrow-down" size={11} color="#081E3E" />
-                      <Text style={styles.pillBadgeTealText}>{currentStats.newDiff.replace('-', '')}</Text>
+                    <Text style={styles.statNumberWhite}>{currentStats.newPatients}</Text>
+                    <View style={styles.pillBadgeWhite}>
+                      <Ionicons name="arrow-down" size={11} color="#0D9488" />
+                      <Text style={styles.pillBadgeWhiteText}>{currentStats.newDiff}</Text>
                     </View>
                   </View>
-                  <Text style={styles.statLabelTeal} numberOfLines={1}>New patients</Text>
+                  <Text style={styles.statLabelWhite}>New patients</Text>
                 </View>
 
-                {/* Metric 2: Total patients */}
-                <View style={[styles.statBox, isNarrow && styles.statBoxNarrow]}>
+                {/* Card 2: Total Patients */}
+                <View style={[styles.statBoxStandard, { backgroundColor: theme.mutedBg, borderColor: theme.subtleBorder }]}>
                   <View style={styles.statBoxTopRow}>
-                    <Text style={styles.statNumberNavy}>{currentStats.totalPatients}</Text>
-                    <View style={styles.pillBadgeGreen}>
-                      <Ionicons name="arrow-up" size={11} color="#00B894" />
-                      <Text style={styles.pillBadgeGreenText}>{currentStats.totalDiff.replace('+', '')}</Text>
-                    </View>
-                  </View>
-                  <Text style={styles.statLabelMuted} numberOfLines={1}>Total patients</Text>
-                </View>
-
-                {/* Metric 3: Time to appt. */}
-                <View style={[styles.statBox, isNarrow && styles.statBoxNarrow]}>
-                  <View style={styles.statBoxTopRow}>
-                    <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 2 }}>
-                      <Text style={styles.statNumberNavy}>{currentStats.timeToAppt.split(' ')[0]}</Text>
-                      <Text style={styles.statUnitNavy}>min</Text>
-                    </View>
-                    <View style={styles.pillBadgeGreen}>
-                      <Ionicons name="arrow-down" size={11} color="#00B894" />
-                      <Text style={styles.pillBadgeGreenText}>{currentStats.timeDiff.replace('-', '')}</Text>
-                    </View>
-                  </View>
-                  <Text style={styles.statLabelMuted} numberOfLines={1}>Time to appt.</Text>
-                </View>
-
-                {/* Metric 4: PSS */}
-                <View style={[styles.statBox, isNarrow && styles.statBoxNarrow]}>
-                  <View style={styles.statBoxTopRow}>
-                    <Text style={styles.statNumberNavy}>{currentStats.pss}</Text>
-                    <View style={styles.pillBadgeTealLight}>
+                    <Text style={[styles.statNumberStandard, { color: theme.textPrimary }]}>{currentStats.totalPatients}</Text>
+                    <View style={styles.pillBadgeTealSubtle}>
                       <Ionicons name="arrow-up" size={11} color="#0D9488" />
-                      <Text style={styles.pillBadgeTealLightText}>{currentStats.pssDiff.replace('+', '')}</Text>
+                      <Text style={styles.pillBadgeTealSubtleText}>{currentStats.totalDiff}</Text>
                     </View>
                   </View>
-                  <View style={styles.pssLabelRow}>
-                    <Text style={styles.statLabelMuted} numberOfLines={1}>PSS</Text>
+                  <Text style={styles.statLabelMuted}>Total patients</Text>
+                </View>
+
+                {/* Card 3: Time to appt. */}
+                <View style={[styles.statBoxStandard, { backgroundColor: theme.mutedBg, borderColor: theme.subtleBorder }]}>
+                  <View style={styles.statBoxTopRow}>
+                    <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 3 }}>
+                      <Text style={[styles.statNumberStandard, { color: theme.textPrimary }]}>{currentStats.timeToAppt}</Text>
+                      <Text style={styles.statUnitText}>min</Text>
+                    </View>
+                    <View style={styles.pillBadgeEmeraldSubtle}>
+                      <Ionicons name="arrow-down" size={11} color="#10B981" />
+                      <Text style={styles.pillBadgeEmeraldSubtleText}>{currentStats.timeDiff}</Text>
+                    </View>
+                  </View>
+                  <View style={styles.statLabelRow}>
+                    <Text style={styles.statLabelMuted}>Time to appt.</Text>
+                    <Ionicons name="information-circle-outline" size={13} color="#94A3B8" />
+                  </View>
+                </View>
+
+                {/* Card 4: PSS Score */}
+                <View style={[styles.statBoxStandard, { backgroundColor: theme.mutedBg, borderColor: theme.subtleBorder }]}>
+                  <View style={styles.statBoxTopRow}>
+                    <Text style={[styles.statNumberStandard, { color: theme.textPrimary }]}>{currentStats.pss}</Text>
+                    <View style={styles.pillBadgeTealSubtle}>
+                      <Ionicons name="arrow-up" size={11} color="#0D9488" />
+                      <Text style={styles.pillBadgeTealSubtleText}>{currentStats.pssDiff}</Text>
+                    </View>
+                  </View>
+                  <View style={styles.statLabelRow}>
+                    <Text style={styles.statLabelMuted}>PSS Score</Text>
                     <Ionicons name="information-circle-outline" size={13} color="#94A3B8" />
                   </View>
                 </View>
@@ -651,279 +770,187 @@ export default function DoctorDashboardPage({
             </View>
 
             {/* -------------------------------------------------------- */}
-            {/* CARD 2: DIAGNOSES WITH BAR CHART & BREAKDOWN            */}
+            {/* CARD 2: NEXT APPOINTMENTS (Matching HTML List)           */}
             {/* -------------------------------------------------------- */}
-            <View style={styles.cardContainer}>
+            <View style={[styles.cardContainer, { backgroundColor: theme.cardBg, borderColor: theme.cardBorder }]}>
               <View style={styles.cardHeaderRow}>
-                <Text style={styles.cardMainHeading}>Diagnoses</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  <Text style={[styles.cardMainHeading, { color: theme.textPrimary }]}>Next Appointments</Text>
+                  <View style={styles.counterBadgeTeal}>
+                    <Text style={styles.counterBadgeTealText}>6 Upcoming</Text>
+                  </View>
+                </View>
                 <TouchableOpacity
-                  style={styles.dropdownSelectorPill}
-                  onPress={() => setDiagnosesOrder(prev => prev === 'Descending' ? 'Ascending' : 'Descending')}
+                  style={styles.viewAllApptsBtn}
+                  onPress={() => {
+                    if (setActiveTab) setActiveTab('appointments');
+                  }}
                   activeOpacity={0.7}
                 >
-                  <Text style={styles.dropdownSelectorText}>{diagnosesOrder} order</Text>
-                  <Ionicons name="chevron-down" size={12} color="#64748B" />
+                  <Text style={styles.viewAllApptsBtnText}>View All Appointments</Text>
+                  <Ionicons name="arrow-forward" size={13} color="#0D9488" />
                 </TouchableOpacity>
               </View>
 
-              <View style={[styles.diagnosesContentRow, isNarrow && styles.diagnosesContentRowNarrow]}>
-                {/* Left: Bar Chart Pillars with Percentage Badges */}
-                <View style={[styles.barChartPillarsWrap, isNarrow && styles.barChartPillarsWrapNarrow]}>
-                  {diagnosesList.map((item, idx) => {
-                    const isTop = idx === 0;
-                    return (
-                      <View key={item.code} style={styles.barColumnContainer}>
-                        <Text style={[styles.barPctLabel, isTop && styles.barPctLabelHighlight]}>
-                          {item.pct}%
-                        </Text>
-                        <View style={styles.barTrack}>
-                          <View
-                            style={[
-                              styles.barFill,
-                              { height: item.height },
-                              isTop ? styles.barFillPrimary : (idx % 2 === 0 ? styles.barFillTealMid : styles.barFillNavySoft),
-                            ]}
+              {/* Appointments List */}
+              <View style={styles.nextApptsListWrap}>
+                {nextAppointmentsData.map((apt) => {
+                  const isVideo = apt.type === 'Video';
+                  return (
+                    <View
+                      key={apt.id}
+                      style={[
+                        styles.nextApptItemCard,
+                        { backgroundColor: theme.mutedBg, borderColor: theme.subtleBorder },
+                      ]}
+                    >
+                      {/* Left: Time & Patient Details */}
+                      <View style={styles.nextApptLeftCol}>
+                        {/* Time Badge */}
+                        <View style={styles.nextApptTimeBadge}>
+                          <Ionicons
+                            name={isVideo ? 'videocam' : 'business'}
+                            size={13}
+                            color="#0D9488"
                           />
+                          <Text style={styles.nextApptTimeText}>{apt.time}</Text>
+                        </View>
+
+                        {/* Patient Initials Avatar */}
+                        <View style={[styles.nextApptAvatarBox, { backgroundColor: apt.avatarBg }]}>
+                          <Text style={[styles.nextApptAvatarText, { color: apt.avatarColor }]}>
+                            {apt.initials}
+                          </Text>
+                        </View>
+
+                        {/* Patient Meta */}
+                        <View style={styles.nextApptMetaCol}>
+                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                            <Text style={[styles.nextApptName, { color: theme.textPrimary }]}>{apt.patientName}</Text>
+                            <Text style={styles.nextApptDemographics}>{apt.patientDetails}</Text>
+                            <View style={styles.bloodGroupPill}>
+                              <Text style={styles.bloodGroupText}>🩸 {apt.bloodGroup}</Text>
+                            </View>
+                          </View>
+                          <Text style={styles.nextApptCondition} numberOfLines={1}>
+                            {apt.condition}
+                          </Text>
                         </View>
                       </View>
-                    );
-                  })}
-                </View>
 
-                {/* Right: Two-Column Text Breakdown */}
-                <View style={[styles.diagnosesLegendGrid, isNarrow && styles.diagnosesLegendGridNarrow]}>
-                  <View style={styles.diagnosesLegendCol}>
-                    <View style={styles.diagnosesItemRow}>
-                      <Text style={styles.diagnosesCodeText} numberOfLines={1}>HTN</Text>
-                      <Text style={styles.diagnosesPctText}>31%</Text>
-                    </View>
-                    <View style={styles.diagnosesItemRow}>
-                      <Text style={styles.diagnosesCodeText} numberOfLines={1}>Dyslipidemia</Text>
-                      <Text style={styles.diagnosesPctText}>23%</Text>
-                    </View>
-                    <View style={styles.diagnosesItemRow}>
-                      <Text style={styles.diagnosesCodeText} numberOfLines={1}>CAD/Angina</Text>
-                      <Text style={styles.diagnosesPctText}>20%</Text>
-                    </View>
-                    <View style={styles.diagnosesItemRow}>
-                      <Text style={styles.diagnosesCodeText} numberOfLines={1}>Heart Failure</Text>
-                      <Text style={styles.diagnosesPctText}>17%</Text>
-                    </View>
-                  </View>
+                      {/* Right: Status Pill & Start Consult Button */}
+                      <View style={styles.nextApptRightCol}>
+                        <View style={styles.statusPillBox}>
+                          <View style={[styles.statusDot, { backgroundColor: apt.statusColor }]} />
+                          <Text style={[styles.statusPillText, { color: theme.textPrimary }]}>{apt.status}</Text>
+                        </View>
 
-                  <View style={styles.diagnosesLegendCol}>
-                    <View style={styles.diagnosesItemRow}>
-                      <Text style={styles.diagnosesCodeText} numberOfLines={1}>Arrhythmias</Text>
-                      <Text style={styles.diagnosesPctText}>11%</Text>
+                        <TouchableOpacity
+                          style={styles.startConsultBtnTeal}
+                          onPress={() => handleDirectStartConsult(apt)}
+                          activeOpacity={0.85}
+                        >
+                          <Ionicons name="pulse" size={14} color="#FFFFFF" />
+                          <Text style={styles.startConsultBtnText}>Start Consult</Text>
+                        </TouchableOpacity>
+                      </View>
                     </View>
-                    <View style={styles.diagnosesItemRow}>
-                      <Text style={styles.diagnosesCodeText} numberOfLines={1}>Post-MI/PCI</Text>
-                      <Text style={styles.diagnosesPctText}>9%</Text>
-                    </View>
-                    <View style={styles.diagnosesItemRow}>
-                      <Text style={styles.diagnosesCodeText} numberOfLines={1}>Other</Text>
-                      <Text style={styles.diagnosesPctText}>6%</Text>
-                    </View>
-                  </View>
-                </View>
+                  );
+                })}
               </View>
             </View>
 
             {/* -------------------------------------------------------- */}
-            {/* CARD 3 & 4: NEW PATIENTS TREND CHART & PATIENTS LIST     */}
+            {/* CARDS 3 & 4: ANALYTICS (TREND CHART & PATIENTS FOLLOW-UP)*/}
             {/* -------------------------------------------------------- */}
-            <View style={[styles.bottomSplitRow, isNarrow && styles.bottomSplitRowNarrow]}>
-              {/* Left Sub-card: New Patients Trend Chart */}
-              <View style={[styles.cardContainer, styles.subCardHalf]}>
+            <View style={[styles.analyticsGridRow, isNarrow && styles.analyticsGridRowNarrow]}>
+              {/* Left Sub-Card: New Patients Trend Bar Chart */}
+              <View style={[styles.cardContainer, styles.subCardHalf, { backgroundColor: theme.cardBg, borderColor: theme.cardBorder }]}>
                 <View style={styles.cardHeaderRow}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                    <Text style={styles.cardSubHeading}>New patients</Text>
-                    <View style={styles.counterBadge}>
-                      <Text style={styles.counterBadgeText}>8</Text>
-                    </View>
+                  <View>
+                    <Text style={[styles.cardSubHeading, { color: theme.textPrimary }]}>New patients</Text>
+                    <Text style={styles.cardSubTagline}>Weekly patient registration trends</Text>
                   </View>
-
-                  <View style={styles.periodPillGroupSmall}>
-                    {['Today', 'Week', 'Month'].map(p => (
-                      <TouchableOpacity
-                        key={p}
-                        style={[
-                          styles.periodBtnSmall,
-                          patientTrendPeriod === p && styles.periodBtnSmallActive,
-                        ]}
-                        onPress={() => setPatientTrendPeriod(p)}
-                      >
-                        <Text
-                          style={[
-                            styles.periodBtnSmallText,
-                            patientTrendPeriod === p && styles.periodBtnSmallTextActive,
-                          ]}
-                        >
-                          {p}
-                        </Text>
-                      </TouchableOpacity>
-                    ))}
+                  <View style={styles.counterBadgeTeal}>
+                    <Text style={styles.counterBadgeTealText}>8 Total</Text>
                   </View>
                 </View>
 
-                {/* Simulated Visual Area Trend Chart with Teal & Navy curves */}
-                <View style={styles.chartVisualWrapper}>
-                  {/* Grid Lines */}
-                  <View style={styles.chartGridLine}>
-                    <Text style={styles.chartAxisNum}>10</Text>
-                    <View style={styles.gridDashed} />
-                  </View>
-                  <View style={styles.chartGridLine}>
-                    <Text style={styles.chartAxisNum}>8</Text>
-                    <View style={styles.gridDashed} />
-                  </View>
-                  <View style={styles.chartGridLine}>
-                    <Text style={styles.chartAxisNum}>6</Text>
-                    <View style={styles.gridDashed} />
-                  </View>
-                  <View style={styles.chartGridLine}>
-                    <Text style={styles.chartAxisNum}>4</Text>
-                    <View style={styles.gridDashed} />
-                  </View>
-                  <View style={styles.chartGridLine}>
-                    <Text style={styles.chartAxisNum}>2</Text>
-                    <View style={styles.gridDashed} />
-                  </View>
-
-                  {/* SVG Canvas on Web */}
-                  {Platform.OS === 'web' && (
-                    <svg
-                      style={{
-                        position: 'absolute',
-                        left: 24,
-                        right: 8,
-                        top: 8,
-                        bottom: 24,
-                        width: 'calc(100% - 32px)',
-                        height: '110px',
-                        overflow: 'visible',
-                      }}
-                      viewBox="0 0 320 110"
-                      preserveAspectRatio="none"
-                    >
-                      <defs>
-                        <linearGradient id="tealAreaGrad" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="0%" stopColor="#00B894" stopOpacity="0.25" />
-                          <stop offset="100%" stopColor="#00B894" stopOpacity="0.0" />
-                        </linearGradient>
-                        <linearGradient id="navyAreaGrad" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="0%" stopColor="#081E3E" stopOpacity="0.15" />
-                          <stop offset="100%" stopColor="#081E3E" stopOpacity="0.0" />
-                        </linearGradient>
-                      </defs>
-
-                      {/* Male Curve Area Fill (Teal) */}
-                      <path
-                        d="M 10 90 Q 55 60 95 65 T 180 85 T 260 40 T 310 55 L 310 110 L 10 110 Z"
-                        fill="url(#tealAreaGrad)"
-                      />
-                      {/* Male Line (Teal) */}
-                      <path
-                        d="M 10 90 Q 55 60 95 65 T 180 85 T 260 40 T 310 55"
-                        fill="none"
-                        stroke="#00B894"
-                        strokeWidth="2.5"
-                        strokeLinecap="round"
-                      />
-
-                      {/* Female Curve Area Fill (Navy / Cyan) */}
-                      <path
-                        d="M 10 95 Q 60 75 105 50 T 190 70 T 270 50 T 310 70 L 310 110 L 10 110 Z"
-                        fill="url(#navyAreaGrad)"
-                      />
-                      {/* Female Line */}
-                      <path
-                        d="M 10 95 Q 60 75 105 50 T 190 70 T 270 50 T 310 70"
-                        fill="none"
-                        stroke="#081E3E"
-                        strokeWidth="2"
-                        strokeDasharray="4 2"
-                        strokeLinecap="round"
-                      />
-
-                      {/* Accent Points */}
-                      <circle cx="260" cy="40" r="4" fill="#00B894" stroke="#FFFFFF" strokeWidth="2" />
-                      <circle cx="105" cy="50" r="3.5" fill="#081E3E" stroke="#FFFFFF" strokeWidth="1.5" />
-                    </svg>
-                  )}
-
-                  {/* Day Labels Axis */}
-                  <View style={styles.daysAxisRow}>
-                    {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(day => (
-                      <Text key={day} style={styles.dayLabelText}>{day}</Text>
-                    ))}
-                  </View>
-                </View>
-
-                {/* Legend at bottom */}
-                <View style={styles.chartLegendRow}>
-                  <View style={styles.legendItem}>
-                    <View style={[styles.legendDot, { backgroundColor: '#00B894' }]} />
-                    <Text style={styles.legendText}>Male</Text>
-                  </View>
-                  <View style={styles.legendItem}>
-                    <View style={[styles.legendDot, { backgroundColor: '#081E3E' }]} />
-                    <Text style={styles.legendText}>Female</Text>
+                {/* Bar Chart Visual (Responsive React Native Bar Representation) */}
+                <View style={styles.chartWrapper}>
+                  <View style={styles.barChartContainer}>
+                    {weeklyTrends.map((item) => {
+                      const barHeightPercent = Math.round((item.value / maxTrendValue) * 100);
+                      const isPeak = item.value === 8;
+                      return (
+                        <View key={item.day} style={styles.barColumn}>
+                          <View style={styles.barTrack}>
+                            <View
+                              style={[
+                                styles.barFill,
+                                {
+                                  height: `${barHeightPercent}%`,
+                                  backgroundColor: isPeak ? '#0D9488' : '#14B8A6',
+                                },
+                              ]}
+                            />
+                          </View>
+                          <Text style={[styles.barDayLabel, isPeak && styles.barDayLabelActive]}>
+                            {item.day}
+                          </Text>
+                        </View>
+                      );
+                    })}
                   </View>
                 </View>
               </View>
 
-              {/* Right Sub-card: Patients Follow-up */}
-              <View style={[styles.cardContainer, styles.subCardHalf]}>
+              {/* Right Sub-Card: Patients Follow-up */}
+              <View style={[styles.cardContainer, styles.subCardHalf, { backgroundColor: theme.cardBg, borderColor: theme.cardBorder }]}>
                 <View style={styles.cardHeaderRow}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                    <Text style={styles.cardSubHeading}>Patients follow-up</Text>
-                    <View style={styles.counterBadge}>
-                      <Text style={styles.counterBadgeText}>42</Text>
-                    </View>
+                  <View>
+                    <Text style={[styles.cardSubHeading, { color: theme.textPrimary }]}>Patients follow-up</Text>
+                    <Text style={styles.cardSubTagline}>Scheduled post-consult reviews</Text>
                   </View>
-
-                  <TouchableOpacity style={styles.dropdownSelectorPillSmall}>
-                    <Text style={styles.dropdownSelectorTextSmall}>All</Text>
+                  <TouchableOpacity style={styles.dropdownSelectorPill}>
+                    <Text style={styles.dropdownSelectorText}>All</Text>
                     <Ionicons name="chevron-down" size={11} color="#64748B" />
                   </TouchableOpacity>
                 </View>
 
-                {/* Patients items list */}
-                <View style={styles.patientItemListGroup}>
-                  {filteredPatientsList.map(patient => (
+                {/* Follow-up Items */}
+                <View style={styles.followupListWrap}>
+                  {followupPatients.map((patient) => (
                     <TouchableOpacity
                       key={patient.id}
-                      style={styles.patientListItem}
-                      onPress={() => handleFollowUpPatientClick(patient)}
-                      activeOpacity={0.7}
+                      style={[styles.followupItemRow, { backgroundColor: theme.mutedBg }]}
+                      onPress={() => handleOpenPatientPreview(patient)}
+                      activeOpacity={0.8}
                     >
-                      <View style={[styles.patientListAvatar, { backgroundColor: patient.avatarBg }]}>
-                        <Text style={[styles.patientListAvatarText, { color: patient.avatarColor }]}>
+                      <View style={[styles.followupAvatarBox, { backgroundColor: patient.avatarBg }]}>
+                        <Text style={[styles.followupAvatarText, { color: patient.avatarColor }]}>
                           {patient.initials}
                         </Text>
                       </View>
-
-                      <View style={styles.patientListInfoCol}>
-                        <Text style={styles.patientListNameText} numberOfLines={1}>{patient.name}</Text>
-                        <Text style={styles.patientListSubText} numberOfLines={1}>
-                          {patient.gender}, {patient.age} y.o. • {patient.reason}
+                      <View style={styles.followupInfoCol}>
+                        <Text style={[styles.followupName, { color: theme.textPrimary }]}>{patient.name}</Text>
+                        <Text style={styles.followupSubText} numberOfLines={1}>
+                          {patient.diagnosis}
                         </Text>
                       </View>
-
-                      <TouchableOpacity
-                        style={styles.moreActionBtn}
-                        onPress={() => handleFollowUpPatientClick(patient)}
-                      >
-                        <Ionicons name="chevron-forward" size={16} color="#00B894" />
-                      </TouchableOpacity>
+                      <View style={styles.followupBadgePill}>
+                        <Text style={styles.followupBadgeText}>{patient.timeBadge}</Text>
+                      </View>
+                      <Ionicons name="chevron-forward" size={14} color="#0D9488" />
                     </TouchableOpacity>
                   ))}
                 </View>
               </View>
             </View>
 
-            {/* CARD: GO FOR MEDIUNIFY (LONG BOX UNDER NEW PATIENTS & PATIENTS FOLLOW-UP) */}
+            {/* -------------------------------------------------------- */}
+            {/* GO FOR MEDIUNIFY CLINICAL BANNER (Preserved Feature)     */}
+            {/* -------------------------------------------------------- */}
             <TouchableOpacity
               style={styles.goMediUnifyBannerCard}
               onPress={() => {
@@ -947,332 +974,209 @@ export default function DoctorDashboardPage({
                   </Text>
                 </View>
               </View>
-
               <View style={styles.goMediUnifyActionBtn}>
-                <Text style={styles.goMediUnifyActionBtnText}>Go for MediUnify</Text>
+                <Text style={styles.goMediUnifyActionBtnText}>Open OPD Queue</Text>
                 <Ionicons name="arrow-forward" size={15} color="#FFFFFF" />
               </View>
             </TouchableOpacity>
           </View>
 
           {/* ========================================================== */}
-          {/* RIGHT COLUMN: SCHEDULE TIMELINE (approx 32% width)         */}
+          {/* RIGHT SIDE PANEL: Schedule Timeline Stream                 */}
           {/* ========================================================== */}
           <View style={[styles.rightColumn, isNarrow && styles.rightColumnNarrow]}>
-            <View style={[styles.cardContainer, styles.scheduleCard]}>
-              {/* Header: Schedule Title + Today/This week Toggle */}
+            <View style={[styles.cardContainer, { backgroundColor: theme.cardBg, borderColor: theme.cardBorder }]}>
+              {/* Header: Schedule + Count + Today/Week selector */}
               <View style={styles.cardHeaderRow}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7 }}>
-                  <Text style={styles.cardMainHeading}>Schedule</Text>
-                  <View style={styles.counterBadgeTeal}>
-                    <Text style={styles.counterBadgeTealText}>{filteredSchedule.length}</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  <Text style={[styles.cardMainHeading, { color: theme.textPrimary }]}>Schedule</Text>
+                  <View style={styles.scheduleCountBadge}>
+                    <Text style={styles.scheduleCountBadgeText}>{filteredTimeline.length}</Text>
                   </View>
                 </View>
-                <View style={styles.periodPillGroup}>
-                  {['Today', 'This week'].map(tab => (
-                    <TouchableOpacity
-                      key={tab}
-                      style={[
-                        styles.periodBtn,
-                        scheduleView === tab && styles.periodBtnActive,
-                      ]}
-                      onPress={() => setScheduleView(tab)}
-                      activeOpacity={0.8}
-                    >
-                      <Text
+                {/* Today / This Week buttons */}
+                <View style={[styles.periodPillGroup, { backgroundColor: theme.mutedBg }]}>
+                  <TouchableOpacity
+                    style={[styles.periodBtn, scheduleView === 'today' && styles.periodBtnActive]}
+                    onPress={() => setScheduleView('today')}
+                  >
+                    <Text style={[styles.periodBtnText, scheduleView === 'today' && styles.periodBtnTextActive]}>
+                      Today
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.periodBtn, scheduleView === 'week' && styles.periodBtnActive]}
+                    onPress={() => setScheduleView('week')}
+                  >
+                    <Text style={[styles.periodBtnText, scheduleView === 'week' && styles.periodBtnTextActive]}>
+                      This week
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+
+              {/* Date Heading */}
+              <Text style={styles.scheduleDateLabel}>Today, 15 Jun, Wed</Text>
+
+              {/* Filter Tabs: All, In-Person, Video */}
+              <View style={[styles.timelineFilterBar, { backgroundColor: theme.mutedBg }]}>
+                <TouchableOpacity
+                  style={[styles.timelineFilterBtn, scheduleFilter === 'all' && styles.timelineFilterBtnActive]}
+                  onPress={() => setScheduleFilter('all')}
+                >
+                  <Text style={[styles.timelineFilterBtnText, scheduleFilter === 'all' && styles.timelineFilterBtnTextActive]}>
+                    All ({scheduleTimelineData.length})
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.timelineFilterBtn, scheduleFilter === 'in-person' && styles.timelineFilterBtnActive]}
+                  onPress={() => setScheduleFilter('in-person')}
+                >
+                  <Text style={[styles.timelineFilterBtnText, scheduleFilter === 'in-person' && styles.timelineFilterBtnTextActive]}>
+                    In-Person ({inPersonTimelineCount})
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.timelineFilterBtn, scheduleFilter === 'video' && styles.timelineFilterBtnActive]}
+                  onPress={() => setScheduleFilter('video')}
+                >
+                  <Text style={[styles.timelineFilterBtnText, scheduleFilter === 'video' && styles.timelineFilterBtnTextActive]}>
+                    Video ({videoTimelineCount})
+                  </Text>
+                </TouchableOpacity>
+              </View>
+
+              {/* Vertical Timeline Guide & Slots */}
+              <View style={styles.timelineGuideWrapper}>
+                <View style={styles.verticalTimelineRule} />
+
+                {filteredTimeline.map((slot) => {
+                  const isVideo = slot.type === 'Video';
+                  const isNext = slot.isNext;
+
+                  return (
+                    <View key={slot.id} style={styles.timelineSlotRow}>
+                      {/* Timeline Node Dot */}
+                      <View
                         style={[
-                          styles.periodBtnText,
-                          scheduleView === tab && styles.periodBtnTextActive,
+                          styles.timelineNodeCircle,
+                          isNext ? styles.timelineNodeCircleActive : styles.timelineNodeCircleNormal,
                         ]}
-                      >
-                        {tab}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              </View>
+                      />
 
-              {/* Subtitle row: Date without Upcoming button */}
-              <View style={styles.scheduleDateRow}>
-                <Text style={styles.scheduleDateHeading}>Today, 15 Jun, Wed</Text>
-              </View>
+                      {/* Content Card */}
+                      <View style={styles.timelineSlotContentBox}>
+                        <Text style={styles.timelineSlotTime}>{slot.time}</Text>
 
-              {/* In-Person / Video Toggle (Segmented Filter Bar at Top of Schedule) */}
-              <View style={styles.scheduleFilterToggleRow}>
-                <TouchableOpacity
-                  style={[
-                    styles.scheduleFilterToggleBtn,
-                    scheduleChannelFilter === 'All' && styles.scheduleFilterToggleBtnActiveAll,
-                  ]}
-                  onPress={() => setScheduleChannelFilter('All')}
-                  activeOpacity={0.8}
-                >
-                  <Text
-                    style={[
-                      styles.scheduleFilterToggleText,
-                      scheduleChannelFilter === 'All' && styles.scheduleFilterToggleTextActive,
-                    ]}
-                  >
-                    All ({scheduleConsultations.length})
-                  </Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={[
-                    styles.scheduleFilterToggleBtn,
-                    scheduleChannelFilter === 'In-Person' && styles.scheduleFilterToggleBtnActiveInPerson,
-                  ]}
-                  onPress={() => setScheduleChannelFilter('In-Person')}
-                  activeOpacity={0.8}
-                >
-                  <Ionicons
-                    name="business-outline"
-                    size={12}
-                    color={scheduleChannelFilter === 'In-Person' ? '#FFFFFF' : '#081E3E'}
-                  />
-                  <Text
-                    style={[
-                      styles.scheduleFilterToggleText,
-                      scheduleChannelFilter === 'In-Person' && styles.scheduleFilterToggleTextActive,
-                    ]}
-                  >
-                    In-Person ({inPersonCount})
-                  </Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={[
-                    styles.scheduleFilterToggleBtn,
-                    scheduleChannelFilter === 'Video' && styles.scheduleFilterToggleBtnActiveVideo,
-                  ]}
-                  onPress={() => setScheduleChannelFilter('Video')}
-                  activeOpacity={0.8}
-                >
-                  <Ionicons
-                    name="videocam-outline"
-                    size={12}
-                    color={scheduleChannelFilter === 'Video' ? '#FFFFFF' : '#00B894'}
-                  />
-                  <Text
-                    style={[
-                      styles.scheduleFilterToggleText,
-                      scheduleChannelFilter === 'Video' && styles.scheduleFilterToggleTextActive,
-                    ]}
-                  >
-                    Video ({videoCount})
-                  </Text>
-                </TouchableOpacity>
-              </View>
-
-              {/* Timeline Container */}
-              <View style={styles.timelineContainer}>
-                {/* Vertical Timeline Guide Line */}
-                <View style={styles.verticalTimelineAxis} />
-
-                {filteredSchedule.length === 0 ? (
-                  <View style={styles.scheduleEmptyBox}>
-                    <Ionicons name="calendar-outline" size={30} color="#94A3B8" />
-                    <Text style={styles.scheduleEmptyTitle}>No {scheduleChannelFilter} patient consultations today</Text>
-                    <TouchableOpacity
-                      style={styles.scheduleEmptyResetBtn}
-                      onPress={() => setScheduleChannelFilter('All')}
-                      activeOpacity={0.8}
-                    >
-                      <Text style={styles.scheduleEmptyResetText}>Show All Patient Consultations</Text>
-                    </TouchableOpacity>
-                  </View>
-                ) : (
-                  filteredSchedule.map((appointment) => {
-                    const isVideo = appointment.type === 'Video';
-                    const isNext = appointment.isNext;
-
-                    // Show current time dashed indicator right before 1:00 PM slot
-                    const showCurrentTimeLine = (appointment.time === '01:00 PM');
-
-                    return (
-                      <React.Fragment key={appointment.id}>
-                        {showCurrentTimeLine && (
-                          <View style={styles.currentTimeLineRow}>
-                            <View style={styles.currentTimeBadge}>
-                              <Text style={styles.currentTimeBadgeText}>11:50 AM</Text>
+                        <View
+                          style={[
+                            styles.timelineCard,
+                            isNext && styles.timelineCardNext,
+                            { backgroundColor: theme.mutedBg, borderColor: isNext ? '#0D9488' : theme.subtleBorder },
+                          ]}
+                        >
+                          {/* Header: Avatar, Name, Channel Badge */}
+                          <View style={styles.timelineCardHeader}>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                              <View style={[styles.timelineAvatar, { backgroundColor: slot.avatarBg }]}>
+                                <Text style={[styles.timelineAvatarText, { color: slot.avatarColor }]}>
+                                  {slot.initials}
+                                </Text>
+                              </View>
+                              <View>
+                                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                                  <Text style={[styles.timelinePatientName, { color: theme.textPrimary }]}>{slot.name}</Text>
+                                  {isNext && (
+                                    <View style={styles.nextPillTag}>
+                                      <Text style={styles.nextPillTagText}>NEXT</Text>
+                                    </View>
+                                  )}
+                                </View>
+                                <Text style={styles.timelinePatientMeta}>
+                                  {slot.gender}, {slot.age} y.o.
+                                </Text>
+                              </View>
                             </View>
-                            <View style={styles.currentTimeDashedRule} />
-                          </View>
-                        )}
 
-                        <View style={styles.timelineSlotBlock}>
-                          {/* Time Axis Column */}
-                          <View style={styles.timeAxisCol}>
-                            <Text style={styles.timeAxisLabel}>{appointment.time}</Text>
-                            <View
-                              style={[
-                                styles.timelineNodeDot,
-                                isVideo ? styles.timelineNodeDotTeal : styles.timelineNodeDotNavy,
-                                isNext && styles.timelineNodeDotNext,
-                              ]}
-                            />
+                            <View style={[styles.channelBadge, isVideo ? styles.channelBadgeVideo : styles.channelBadgeInPerson]}>
+                              <Ionicons
+                                name={isVideo ? 'videocam' : 'business'}
+                                size={11}
+                                color={isVideo ? '#0D9488' : '#0F1F38'}
+                              />
+                              <Text style={[styles.channelBadgeText, { color: isVideo ? '#0D9488' : '#0F1F38' }]}>
+                                {slot.type}
+                              </Text>
+                            </View>
                           </View>
 
-                          {/* Patient Profile Consultation Card */}
-                          <View style={styles.timelineSlotContent}>
+                          {/* Time Range Pill with Clock */}
+                          <View style={[styles.clockTimePill, { backgroundColor: theme.cardBg }]}>
+                            <Ionicons name="time" size={13} color="#0D9488" />
+                            <Text style={styles.clockTimePillText}>{slot.timeRange}</Text>
+                          </View>
+
+                          {/* Condition & Room */}
+                          <View style={[styles.reasonRoomBox, { borderTopColor: theme.subtleBorder }]}>
+                            <Text style={[styles.reasonText, { color: theme.textPrimary }]}>{slot.reason}</Text>
+                            <View style={styles.roomRow}>
+                              <Ionicons name="location-outline" size={12} color="#0D9488" />
+                              <Text style={styles.roomText} numberOfLines={1}>{slot.room}</Text>
+                            </View>
+                          </View>
+
+                          {/* Action Buttons: Patients Details + Join Video Call / Start Consult */}
+                          <View style={styles.timelineActionsRow}>
                             <TouchableOpacity
-                              style={[
-                                styles.patientScheduleCard,
-                                isNext && styles.patientScheduleCardNext,
-                                !isNext && (isVideo ? styles.patientScheduleCardVideo : styles.patientScheduleCardInPerson),
-                              ]}
-                              onPress={() => handleAppointmentClick(appointment)}
-                              activeOpacity={0.85}
+                              style={[styles.btnDetailsSecondary, { backgroundColor: theme.cardBg, borderColor: theme.subtleBorder }]}
+                              onPress={() => handleViewPatientDetails(slot)}
+                              activeOpacity={0.8}
                             >
-                              {/* Header: Patient Profile + Type Badge */}
-                              <View style={styles.patientScheduleHeaderRow}>
-                                <View style={styles.patientScheduleProfileInfo}>
-                                  <View
-                                    style={[
-                                      styles.patientScheduleAvatar,
-                                      { backgroundColor: appointment.avatarBg },
-                                    ]}
-                                  >
-                                    <Text
-                                      style={[
-                                        styles.patientScheduleAvatarText,
-                                        { color: appointment.avatarColor },
-                                      ]}
-                                    >
-                                      {appointment.initials}
-                                    </Text>
-                                  </View>
-                                  <View style={styles.patientScheduleNameCol}>
-                                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                                      <Text style={styles.patientScheduleNameText}>
-                                        {appointment.name}
-                                      </Text>
-                                      {isNext && (
-                                        <View style={styles.nextBadgePill}>
-                                          <Text style={styles.nextBadgeText}>Next</Text>
-                                        </View>
-                                      )}
-                                    </View>
-                                    <Text style={styles.patientScheduleMetaText}>
-                                      {appointment.gender}, {appointment.age} y.o.
-                                    </Text>
-
-                                    {/* Consultation Timings under Name & Gender */}
-                                    <View style={styles.patientScheduleTimeUnderRow}>
-                                      <Ionicons name="time" size={12} color="#00B894" />
-                                      <Text style={styles.patientScheduleTimeUnderText}>
-                                        {appointment.timeRange}
-                                      </Text>
-                                    </View>
-                                  </View>
-                                </View>
-
-                                {/* Channel Tag: Video or In-Person */}
-                                <View
-                                  style={[
-                                    styles.channelPillBadge,
-                                    isVideo ? styles.channelPillBadgeVideo : styles.channelPillBadgeInPerson,
-                                  ]}
-                                >
-                                  <Ionicons
-                                    name={isVideo ? 'videocam' : 'business'}
-                                    size={11}
-                                    color={isVideo ? '#00B894' : '#081E3E'}
-                                  />
-                                  <Text
-                                    style={[
-                                      styles.channelPillBadgeText,
-                                      { color: isVideo ? '#00B894' : '#081E3E' },
-                                    ]}
-                                  >
-                                    {isVideo ? 'Video' : 'In-Person'}
-                                  </Text>
-                                </View>
-                              </View>
-
-                              {/* Chief Complaint Reason & Clinic Location */}
-                              <View style={styles.patientScheduleDetailsBox}>
-                                <View style={styles.patientScheduleDetailRow}>
-                                  <Ionicons name="pulse" size={13} color={isVideo ? '#00B894' : '#081E3E'} />
-                                  <Text style={styles.patientScheduleReasonText} numberOfLines={1}>
-                                    {appointment.reason}
-                                  </Text>
-                                </View>
-                                <View style={styles.patientScheduleDetailRow}>
-                                  <Ionicons name="location-outline" size={12} color="#64748B" />
-                                  <Text style={styles.patientScheduleRoomText} numberOfLines={1}>
-                                    {appointment.room}
-                                  </Text>
-                                </View>
-                              </View>
-
-                              {/* Action Buttons Row Inside Patient Profile Card */}
-                              <View style={styles.patientScheduleCardActionsRow}>
-                                {/* Patients Details Button -> directs to appointments page and opens right side slide for that patient */}
-                                <TouchableOpacity
-                                  style={styles.patientDetailsBtn}
-                                  onPress={(e) => {
-                                    e?.stopPropagation?.();
-                                    handleViewPatientDetails(appointment);
-                                  }}
-                                  activeOpacity={0.8}
-                                >
-                                  <Ionicons name="person-circle-outline" size={14} color="#081E3E" />
-                                  <Text style={styles.patientDetailsBtnText}>Patients Details</Text>
-                                </TouchableOpacity>
-
-                                {/* Video Call button (direct to join call) or In-person Start Consult button */}
-                                {isVideo ? (
-                                  <TouchableOpacity
-                                    style={styles.patientDirectCtaBtnVideo}
-                                    onPress={(e) => {
-                                      e?.stopPropagation?.();
-                                      handleJoinCall(appointment);
-                                    }}
-                                    activeOpacity={0.8}
-                                  >
-                                    <Ionicons name="videocam" size={13} color="#FFFFFF" />
-                                    <Text style={styles.patientDirectCtaBtnText}>Join Video Call</Text>
-                                  </TouchableOpacity>
-                                ) : (
-                                  <TouchableOpacity
-                                    style={styles.patientDirectCtaBtnInPerson}
-                                    onPress={(e) => {
-                                      e?.stopPropagation?.();
-                                      handleStartInPersonConsult(appointment);
-                                    }}
-                                    activeOpacity={0.8}
-                                  >
-                                    <Ionicons name="document-text" size={13} color="#FFFFFF" />
-                                    <Text style={styles.patientDirectCtaBtnText}>Start Consult</Text>
-                                  </TouchableOpacity>
-                                )}
-                              </View>
+                              <Text style={[styles.btnDetailsSecondaryText, { color: theme.textPrimary }]}>Patients Details</Text>
                             </TouchableOpacity>
+
+                            {isVideo ? (
+                              <TouchableOpacity
+                                style={styles.btnActionTeal}
+                                onPress={() => handleDirectStartConsult(slot)}
+                                activeOpacity={0.85}
+                              >
+                                <Ionicons name="videocam" size={13} color="#FFFFFF" />
+                                <Text style={styles.btnActionTealText}>Join Call</Text>
+                              </TouchableOpacity>
+                            ) : (
+                              <TouchableOpacity
+                                style={styles.btnActionTeal}
+                                onPress={() => handleViewPatientDetails(slot)}
+                                activeOpacity={0.85}
+                              >
+                                <Ionicons name="pulse" size={13} color="#FFFFFF" />
+                                <Text style={styles.btnActionTealText}>Start Consult</Text>
+                              </TouchableOpacity>
+                            )}
                           </View>
                         </View>
-                      </React.Fragment>
-                    );
-                  })
-                )}
+                      </View>
+                    </View>
+                  );
+                })}
               </View>
             </View>
           </View>
         </View>
 
         {/* ============================================================== */}
-        {/* 4. DASHBOARD FOOTER                                           */}
+        {/* 3. CLINICAL SUITE FOOTER (Preserved System Support)           */}
         {/* ============================================================== */}
         <View style={styles.dashboardFooter}>
           <View style={styles.footerTopRow}>
-            {/* Brand Col */}
             <View style={styles.footerBrandCol}>
               <View style={styles.footerLogoRow}>
                 <View style={styles.footerLogoBadge}>
                   <Ionicons name="pulse" size={16} color="#FFFFFF" />
                 </View>
                 <Text style={styles.footerBrandText}>
-                  Medi<Text style={{ color: '#00B894' }}>Unify</Text>
+                  Medi<Text style={{ color: '#00B894' }}>unify</Text>
                 </Text>
                 <View style={styles.footerVersionPill}>
                   <Text style={styles.footerVersionText}>v2.4.0</Text>
@@ -1297,7 +1201,6 @@ export default function DoctorDashboardPage({
               </View>
             </View>
 
-            {/* Quick Links Col */}
             <View style={styles.footerLinksCol}>
               <Text style={styles.footerLinksHeading}>Quick Clinical Links</Text>
               <View style={styles.footerLinksGrid}>
@@ -1307,19 +1210,15 @@ export default function DoctorDashboardPage({
                 <TouchableOpacity onPress={() => setActiveTab && setActiveTab('followups')}>
                   <Text style={styles.footerLinkText}>Patients Follow-ups</Text>
                 </TouchableOpacity>
-                <TouchableOpacity onPress={() => setActiveTab && setActiveTab('directpatient')}>
-                  <Text style={styles.footerLinkText}>Direct Patient Walk-ins</Text>
-                </TouchableOpacity>
                 <TouchableOpacity onPress={() => setActiveTab && setActiveTab('availability')}>
                   <Text style={styles.footerLinkText}>Consultation Availability</Text>
                 </TouchableOpacity>
                 <TouchableOpacity onPress={() => setActiveTab && setActiveTab('profile')}>
-                  <Text style={styles.footerLinkText}>Doctor Profile & Practice Info</Text>
+                  <Text style={styles.footerLinkText}>Doctor Profile & Practice</Text>
                 </TouchableOpacity>
               </View>
             </View>
 
-            {/* System Status & Support Col */}
             <View style={styles.footerStatusCol}>
               <Text style={styles.footerLinksHeading}>System Status & Support</Text>
               <View style={styles.footerStatusCard}>
@@ -1330,141 +1229,308 @@ export default function DoctorDashboardPage({
                 <Text style={styles.statusMetricText}>HD Video Server: Bangalore (9ms latency)</Text>
                 <Text style={styles.statusMetricText}>EHR Sync: Real-time active</Text>
               </View>
-
-              <View style={styles.footerHelplineBox}>
-                <Ionicons name="headset" size={16} color="#00B894" />
-                <View>
-                  <Text style={styles.helplineTitle}>24/7 Clinical Support Desk</Text>
-                  <Text style={styles.helplinePhone}>1800-MED-UNIFY (1800 633 864)</Text>
-                </View>
-              </View>
             </View>
           </View>
 
-          {/* Footer Bottom Bar */}
           <View style={styles.footerBottomBar}>
             <Text style={styles.footerCopyrightText}>
-              © 2026 MediUnify Health Systems Inc. All clinical documentation and health records are confidential & protected by medical data governance.
+              © 2026 Mediunify Health Systems Inc. All clinical documentation and health records are confidential & protected.
             </Text>
-            <View style={styles.footerPolicyRow}>
-              <TouchableOpacity>
-                <Text style={styles.footerPolicyLink}>Privacy Policy</Text>
-              </TouchableOpacity>
-              <Text style={styles.footerPolicySep}>•</Text>
-              <TouchableOpacity>
-                <Text style={styles.footerPolicyLink}>Terms of Clinical Service</Text>
-              </TouchableOpacity>
-              <Text style={styles.footerPolicySep}>•</Text>
-              <TouchableOpacity>
-                <Text style={styles.footerPolicyLink}>Telemedicine Guidelines</Text>
-              </TouchableOpacity>
-            </View>
           </View>
         </View>
       </ScrollView>
 
       {/* ============================================================== */}
-      {/* 3. PATIENT DETAILS MODAL (ACCESSIBLE FROM PATIENTS LIST)       */}
+      {/* 4. PATIENT PREVIEW SLIDE-OVER DRAWER MODAL (From HTML)         */}
       {/* ============================================================== */}
       <Modal
-        visible={!!selectedPatientModal}
+        visible={showPreviewModal}
         transparent={true}
         animationType="fade"
-        onRequestClose={() => setSelectedPatientModal(null)}
+        onRequestClose={() => setShowPreviewModal(false)}
       >
         <View style={styles.modalBackdrop}>
-          <View style={styles.modalCardBox}>
-            {selectedPatientModal && (
-              <>
-                <View style={styles.modalHeaderRow}>
-                  <View style={styles.modalHeaderInfo}>
-                    <View style={[styles.modalAvatar, { backgroundColor: selectedPatientModal.avatarBg }]}>
-                      <Text style={[styles.modalAvatarText, { color: selectedPatientModal.avatarColor }]}>
-                        {selectedPatientModal.initials}
-                      </Text>
+          <View style={[styles.slideOverDrawerCard, { backgroundColor: theme.cardBg, borderColor: theme.cardBorder }]}>
+            {/* Header */}
+            <View style={[styles.drawerHeaderRow, { borderBottomColor: theme.subtleBorder }]}>
+              <View style={styles.drawerHeaderLeft}>
+                <View style={styles.drawerAvatar}>
+                  <Text style={styles.drawerAvatarText}>{selectedPatient ? selectedPatient.initials : 'PT'}</Text>
+                </View>
+                <View>
+                  <Text style={[styles.drawerPatientName, { color: theme.textPrimary }]}>{selectedPatient ? selectedPatient.name : ''}</Text>
+                  <Text style={styles.drawerPatientDetails}>{selectedPatient ? selectedPatient.details : ''}</Text>
+                </View>
+              </View>
+              <TouchableOpacity
+                onPress={() => setShowPreviewModal(false)}
+                style={styles.drawerCloseBtn}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              >
+                <Ionicons name="close" size={22} color={theme.textSecondary} />
+              </TouchableOpacity>
+            </View>
+
+            {/* Scrollable Content */}
+            <ScrollView style={styles.drawerBodyScroll} showsVerticalScrollIndicator={false}>
+              {/* Quick Vital Stats Grid (BP, Heart Rate, Blood Group) */}
+              <View style={styles.vitalsGridThree}>
+                <View style={[styles.vitalCardBox, { backgroundColor: theme.mutedBg, borderColor: theme.subtleBorder }]}>
+                  <Text style={styles.vitalLabel}>BLOOD PRESSURE</Text>
+                  <Text style={[styles.vitalValuePrimary, { color: theme.textPrimary }]}>128/82 mmHg</Text>
+                </View>
+                <View style={[styles.vitalCardBox, { backgroundColor: theme.mutedBg, borderColor: theme.subtleBorder }]}>
+                  <Text style={styles.vitalLabel}>HEART RATE</Text>
+                  <Text style={[styles.vitalValuePrimary, { color: '#0D9488' }]}>74 bpm</Text>
+                </View>
+                <View style={[styles.vitalCardBox, { backgroundColor: theme.mutedBg, borderColor: theme.subtleBorder }]}>
+                  <Text style={styles.vitalLabel}>BLOOD GROUP</Text>
+                  <Text style={[styles.vitalValuePrimary, { color: '#E11D48' }]}>
+                    {selectedPatient ? selectedPatient.bloodGroup : 'B+'}
+                  </Text>
+                </View>
+              </View>
+
+              {/* Clinical Diagnosis Objective */}
+              <View style={styles.clinicalObjectiveCard}>
+                <Text style={styles.clinicalObjectiveHeader}>CLINICAL OBJECTIVE / DIAGNOSIS</Text>
+                <Text style={[styles.clinicalObjectiveBody, { color: theme.textPrimary }]}>
+                  {selectedPatient ? selectedPatient.diagnosis : 'Cardiovascular review & lipid maintenance.'}
+                </Text>
+              </View>
+
+              {/* Current Medications & Dosages */}
+              <View style={styles.medicationsSection}>
+                <Text style={styles.sectionSmallHeading}>CURRENT MEDICATIONS & DOSAGES</Text>
+                <View style={styles.medicationList}>
+                  <View style={[styles.medicationRow, { backgroundColor: theme.mutedBg }]}>
+                    <View>
+                      <Text style={[styles.medicationName, { color: theme.textPrimary }]}>Atorvastatin 20mg</Text>
+                      <Text style={styles.medicationInstruction}>Once daily at bedtime</Text>
+                    </View>
+                    <View style={styles.activePillBadge}>
+                      <Text style={styles.activePillText}>Active</Text>
+                    </View>
+                  </View>
+
+                  <View style={[styles.medicationRow, { backgroundColor: theme.mutedBg }]}>
+                    <View>
+                      <Text style={[styles.medicationName, { color: theme.textPrimary }]}>Lisinopril 10mg</Text>
+                      <Text style={styles.medicationInstruction}>Morning dosage with water</Text>
+                    </View>
+                    <View style={styles.activePillBadge}>
+                      <Text style={styles.activePillText}>Active</Text>
+                    </View>
+                  </View>
+                </View>
+              </View>
+
+              {/* Recent Lab Reports */}
+              <View style={styles.labReportsSection}>
+                <Text style={styles.sectionSmallHeading}>RECENT LAB REPORTS</Text>
+                <View style={[styles.labReportCard, { backgroundColor: theme.mutedBg, borderColor: theme.subtleBorder }]}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                    <View style={styles.pdfBadge}>
+                      <Text style={styles.pdfBadgeText}>PDF</Text>
                     </View>
                     <View>
-                      <Text style={styles.modalPatientName}>{selectedPatientModal.name}</Text>
-                      <Text style={styles.modalPatientMeta}>
-                        {selectedPatientModal.gender}, {selectedPatientModal.age} y.o. • {selectedPatientModal.phone}
-                      </Text>
+                      <Text style={[styles.labReportTitle, { color: theme.textPrimary }]}>Lipid Profile & Serum Cholesterol.pdf</Text>
+                      <Text style={styles.labReportMeta}>Uploaded 2 days ago • 2.4 MB</Text>
                     </View>
                   </View>
-                  <TouchableOpacity
-                    onPress={() => setSelectedPatientModal(null)}
-                    style={styles.modalCloseBtn}
-                  >
-                    <Ionicons name="close" size={20} color="#64748B" />
+                  <TouchableOpacity style={[styles.btnViewReport, { backgroundColor: theme.cardBg, borderColor: theme.subtleBorder }]}>
+                    <Text style={[styles.btnViewReportText, { color: theme.textPrimary }]}>View</Text>
                   </TouchableOpacity>
                 </View>
+              </View>
+            </ScrollView>
 
-                <View style={styles.modalBody}>
-                  {/* Diagnosis & Scheduled Time */}
-                  <View style={styles.modalFieldBox}>
-                    <Text style={styles.modalFieldLabel}>Chief Complaint / Reason</Text>
-                    <Text style={styles.modalFieldValue}>{selectedPatientModal.reason}</Text>
+            {/* Footer Buttons */}
+            <View style={[styles.drawerFooterRow, { borderTopColor: theme.subtleBorder }]}>
+              <TouchableOpacity
+                style={[styles.btnDrawerClose, { backgroundColor: theme.mutedBg }]}
+                onPress={() => setShowPreviewModal(false)}
+              >
+                <Text style={[styles.btnDrawerCloseText, { color: theme.textPrimary }]}>Close</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.btnDrawerStartConsult}
+                onPress={() => {
+                  setShowPreviewModal(false);
+                  handleDirectStartConsult(selectedPatient);
+                }}
+              >
+                <Ionicons name="pulse" size={16} color="#FFFFFF" />
+                <Text style={styles.btnDrawerStartConsultText}>Start Consultation</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* ============================================================== */}
+      {/* 5. ACTIVE CONSULTATION MODAL (From HTML)                       */}
+      {/* ============================================================== */}
+      <Modal
+        visible={showConsultModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowConsultModal(false)}
+      >
+        <View style={styles.modalBackdrop}>
+          <View style={[styles.consultModalCard, { backgroundColor: theme.cardBg, borderColor: theme.cardBorder }]}>
+            <View style={[styles.modalHeaderRow, { borderBottomColor: theme.subtleBorder }]}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <View style={styles.consultPulseDot} />
+                <Text style={[styles.consultModalTitle, { color: theme.textPrimary }]}>
+                  Active Consultation: {activeConsultPatient ? activeConsultPatient.patientName || activeConsultPatient.name : ''}
+                </Text>
+              </View>
+              <TouchableOpacity onPress={() => setShowConsultModal(false)}>
+                <Ionicons name="close" size={20} color={theme.textSecondary} />
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.consultModalBody}>
+              <View style={[styles.consultInfoBar, { backgroundColor: theme.mutedBg }]}>
+                <View>
+                  <Text style={styles.vitalLabel}>Condition / Symptoms</Text>
+                  <Text style={[styles.consultConditionText, { color: theme.textPrimary }]}>
+                    {activeConsultPatient ? (activeConsultPatient.condition || activeConsultPatient.reason) : ''}
+                  </Text>
+                </View>
+                <View>
+                  <Text style={styles.vitalLabel}>Blood Group</Text>
+                  <Text style={styles.consultBloodText}>
+                    {activeConsultPatient ? (activeConsultPatient.bloodGroup || 'B+') : 'B+'}
+                  </Text>
+                </View>
+              </View>
+
+              <View style={{ gap: 4 }}>
+                <Text style={styles.fieldLabel}>Doctor's Diagnosis & Notes</Text>
+                <TextInput
+                  style={[styles.consultTextArea, { backgroundColor: theme.mutedBg, borderColor: theme.subtleBorder, color: theme.textPrimary }]}
+                  placeholder="Enter patient clinical notes..."
+                  placeholderTextColor={darkMode ? '#64748B' : '#94A3B8'}
+                  multiline={true}
+                  numberOfLines={3}
+                  value={consultDiagnosisNotes}
+                  onChangeText={setConsultDiagnosisNotes}
+                />
+              </View>
+
+              <View style={{ gap: 4 }}>
+                <Text style={styles.fieldLabel}>Prescription / Medication</Text>
+                <TextInput
+                  style={[styles.consultInput, { backgroundColor: theme.mutedBg, borderColor: theme.subtleBorder, color: theme.textPrimary }]}
+                  placeholder="e.g. Lisinopril 10mg daily"
+                  placeholderTextColor={darkMode ? '#64748B' : '#94A3B8'}
+                  value={consultPrescription}
+                  onChangeText={setConsultPrescription}
+                />
+              </View>
+            </View>
+
+            <View style={[styles.consultModalFooter, { borderTopColor: theme.subtleBorder }]}>
+              <TouchableOpacity
+                style={[styles.btnConsultSecondary, { backgroundColor: theme.mutedBg }]}
+                onPress={() => setShowConsultModal(false)}
+              >
+                <Text style={[styles.btnConsultSecondaryText, { color: theme.textPrimary }]}>Save & End</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.btnConsultPrimary}
+                onPress={() => {
+                  setShowConsultModal(false);
+                  if (setActiveTab) setActiveTab('appointments');
+                }}
+              >
+                <Text style={styles.btnConsultPrimaryText}>Complete Consultation</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* ============================================================== */}
+      {/* 6. PATIENT DOSSIER ARCHIVE MODAL (From HTML)                   */}
+      {/* ============================================================== */}
+      <Modal
+        visible={showPatientDossier}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowPatientDossier(false)}
+      >
+        <View style={styles.modalBackdrop}>
+          <View style={[styles.dossierModalCard, { backgroundColor: theme.cardBg, borderColor: theme.cardBorder }]}>
+            <View style={[styles.modalHeaderRow, { borderBottomColor: theme.subtleBorder }]}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                <View style={styles.dossierBadge}>
+                  <Text style={styles.dossierBadgeText}>PD</Text>
+                </View>
+                <View>
+                  <Text style={[styles.dossierModalTitle, { color: theme.textPrimary }]}>Patient Dossier Archive</Text>
+                  <Text style={styles.dossierModalSub}>Mediunify Secure Patient Records</Text>
+                </View>
+              </View>
+              <TouchableOpacity onPress={() => setShowPatientDossier(false)}>
+                <Ionicons name="close" size={20} color={theme.textSecondary} />
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.dossierMetricsGrid}>
+              <View style={[styles.dossierMetricBox, { backgroundColor: theme.mutedBg, borderColor: theme.subtleBorder }]}>
+                <Text style={styles.vitalLabel}>Total Registered Dossiers</Text>
+                <Text style={[styles.dossierMetricValue, { color: theme.textPrimary }]}>42 Patients</Text>
+              </View>
+              <View style={[styles.dossierMetricBox, { backgroundColor: theme.mutedBg, borderColor: theme.subtleBorder }]}>
+                <Text style={styles.vitalLabel}>Pending Lab Reports</Text>
+                <Text style={[styles.dossierMetricValue, { color: '#0D9488' }]}>3 Reports</Text>
+              </View>
+            </View>
+
+            <View style={{ gap: 8 }}>
+              <Text style={styles.sectionSmallHeading}>RECENT PATIENT RECORDS</Text>
+              <View style={[styles.dossierPatientRow, { backgroundColor: theme.mutedBg }]}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                  <View style={[styles.timelineAvatar, { backgroundColor: '#0D9488' }]}>
+                    <Text style={{ color: '#FFFFFF', fontWeight: '800' }}>PS</Text>
                   </View>
-
-                  <View style={styles.modalFieldBox}>
-                    <Text style={styles.modalFieldLabel}>Scheduled Time</Text>
-                    <Text style={styles.modalFieldValue}>Today at {selectedPatientModal.time}</Text>
-                  </View>
-
-                  {/* Vitals Snapshot */}
-                  <View style={styles.modalVitalsGrid}>
-                    <View style={styles.modalVitalItem}>
-                      <Text style={styles.vitalTag}>BP</Text>
-                      <Text style={styles.vitalVal}>128/82</Text>
-                      <Text style={styles.vitalSub}>mmHg</Text>
-                    </View>
-                    <View style={styles.modalVitalItem}>
-                      <Text style={styles.vitalTag}>Heart Rate</Text>
-                      <Text style={styles.vitalVal}>72</Text>
-                      <Text style={styles.vitalSub}>bpm</Text>
-                    </View>
-                    <View style={styles.modalVitalItem}>
-                      <Text style={styles.vitalTag}>SpO2</Text>
-                      <Text style={styles.vitalVal}>99%</Text>
-                      <Text style={styles.vitalSub}>Air</Text>
-                    </View>
-                    <View style={styles.modalVitalItem}>
-                      <Text style={styles.vitalTag}>Status</Text>
-                      <Text style={[styles.vitalVal, { color: '#00B894' }]}>Normal</Text>
-                      <Text style={styles.vitalSub}>Clinical</Text>
-                    </View>
+                  <View>
+                    <Text style={[styles.nextApptName, { color: theme.textPrimary }]}>Priya Sharma</Text>
+                    <Text style={styles.nextApptCondition}>Seasonal allergy symptoms & sinus congestion</Text>
                   </View>
                 </View>
-
-                {/* Modal Actions */}
-                <View style={styles.modalActionsRow}>
-                  <TouchableOpacity
-                    style={styles.modalBtnSecondary}
-                    onPress={() => setSelectedPatientModal(null)}
-                  >
-                    <Text style={styles.modalBtnSecondaryText}>Close</Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    style={styles.modalBtnPrimary}
-                    onPress={() => {
-                      const p = selectedPatientModal;
-                      setSelectedPatientModal(null);
-                      if (onStartConsultation) {
-                        onStartConsultation({
-                          patient: p.name,
-                          type: 'Video',
-                          reason: p.reason,
-                        });
-                      }
-                      if (setActiveTab) setActiveTab('consultation');
-                    }}
-                  >
-                    <Ionicons name="videocam" size={16} color="#FFFFFF" />
-                    <Text style={styles.modalBtnPrimaryText}>Start Consultation</Text>
-                  </TouchableOpacity>
+                <View style={styles.activePillBadge}>
+                  <Text style={styles.activePillText}>Active Dossier</Text>
                 </View>
-              </>
-            )}
+              </View>
+
+              <View style={[styles.dossierPatientRow, { backgroundColor: theme.mutedBg }]}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                  <View style={[styles.timelineAvatar, { backgroundColor: '#0B1629' }]}>
+                    <Text style={{ color: '#00B894', fontWeight: '800' }}>SI</Text>
+                  </View>
+                  <View>
+                    <Text style={[styles.nextApptName, { color: theme.textPrimary }]}>Sneha Iyer</Text>
+                    <Text style={styles.nextApptCondition}>Routine BP Check & Lipid Profile Review</Text>
+                  </View>
+                </View>
+                <View style={styles.activePillBadge}>
+                  <Text style={styles.activePillText}>Active Dossier</Text>
+                </View>
+              </View>
+            </View>
+
+            <View style={[styles.dossierFooterRow, { borderTopColor: theme.subtleBorder }]}>
+              <TouchableOpacity
+                style={styles.btnDossierClose}
+                onPress={() => setShowPatientDossier(false)}
+              >
+                <Text style={styles.btnDossierCloseText}>Close Dossier</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
       </Modal>
@@ -1473,38 +1539,41 @@ export default function DoctorDashboardPage({
 }
 
 // ====================================================================
-// TEAL AND NAVY BLUE THEME STYLESHEET
+// MEDIUNIFY DOCTOR DASHBOARD STYLESHEET (Teal #00B894 & Navy Blue)
 // ====================================================================
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F3F6FA', // Crisp modern medical canvas
   },
 
-  /* 1. TOP BAR */
+  /* 1. TOP HEADER */
   topBar: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 28,
     paddingVertical: 14,
-    backgroundColor: '#F3F6FA', // Matches whole dashboard page background
-    borderBottomWidth: 0,
-    gap: 20,
+    borderBottomWidth: 1,
+    gap: 16,
     zIndex: 100,
+    flexWrap: 'wrap',
   },
   searchPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F3F6FA', // Matches whole dashboard page background
+    backgroundColor: '#F0FDFA',
     borderRadius: 24,
     paddingHorizontal: 16,
-    paddingVertical: 8,
+    paddingVertical: 9,
     flex: 1,
-    maxWidth: 420,
+    maxWidth: 480,
     gap: 10,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: 'rgba(13, 148, 136, 0.35)',
+  },
+  searchPillDark: {
+    backgroundColor: 'rgba(11, 22, 41, 0.6)',
+    borderColor: 'rgba(13, 148, 136, 0.3)',
   },
   searchIcon: {
     marginRight: 2,
@@ -1512,74 +1581,56 @@ const styles = StyleSheet.create({
   searchInput: {
     flex: 1,
     fontSize: 13,
-    color: '#081E3E',
     backgroundColor: 'transparent',
     outlineStyle: 'none',
   },
   topRightGroup: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 16,
+    gap: 12,
   },
-  topEmailButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#F3F6FA',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    cursor: 'pointer',
-  },
-  bellButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#F3F6FA', // Matches whole dashboard page background
+  headerIconBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
     position: 'relative',
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
   },
-  bellBadge: {
+  bellBtnActive: {
+    borderWidth: 1.5,
+    borderColor: '#0D9488',
+  },
+  notifBadgeDot: {
     position: 'absolute',
-    top: 5,
-    right: 5,
-    width: 16,
-    height: 16,
-    borderRadius: 8,
-    backgroundColor: '#00B894',
-    alignItems: 'center',
-    justifyContent: 'center',
+    top: 8,
+    right: 8,
+    width: 7,
+    height: 7,
+    borderRadius: 3.5,
+    backgroundColor: '#0D9488',
   },
-  bellBadgeText: {
-    color: '#FFFFFF',
-    fontSize: 9.5,
-    fontWeight: '800',
-  },
+
+  /* Doctor Profile Pill */
   doctorProfilePill: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    backgroundColor: '#F3F6FA', // Matches whole dashboard page background
     borderWidth: 1,
-    borderColor: '#E2E8F0',
-    paddingVertical: 5,
+    paddingVertical: 4,
     paddingHorizontal: 10,
-    borderRadius: 24,
+    borderRadius: 16,
   },
   doctorAvatarBox: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    backgroundColor: '#00B894',
+    width: 32,
+    height: 32,
+    borderRadius: 10,
+    backgroundColor: '#0D9488',
     alignItems: 'center',
     justifyContent: 'center',
   },
   doctorAvatarInitials: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '800',
     color: '#FFFFFF',
   },
@@ -1587,26 +1638,23 @@ const styles = StyleSheet.create({
     gap: 1,
   },
   doctorNameText: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '800',
-    color: '#081E3E',
   },
   doctorRoleText: {
     fontSize: 11,
-    color: '#64748B',
-    fontWeight: '500',
+    color: '#0D9488',
+    fontWeight: '600',
   },
   profileDropdownMenu: {
     position: 'absolute',
     top: 48,
     right: 0,
-    width: 170,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
+    width: 180,
+    borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
     paddingVertical: 6,
-    shadowColor: '#081E3E',
+    shadowColor: '#000000',
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.12,
     shadowRadius: 14,
@@ -1621,9 +1669,8 @@ const styles = StyleSheet.create({
     paddingVertical: 9,
   },
   dropdownMenuText: {
-    fontSize: 13,
+    fontSize: 12.5,
     fontWeight: '600',
-    color: '#081E3E',
   },
 
   /* 2. SCROLL CONTENT & GRID */
@@ -1639,7 +1686,7 @@ const styles = StyleSheet.create({
   },
   dashboardGrid: {
     flexDirection: 'row',
-    gap: 22,
+    gap: 24,
     alignItems: 'flex-start',
   },
   dashboardGridNarrow: {
@@ -1651,7 +1698,8 @@ const styles = StyleSheet.create({
   /* Left Major Column */
   leftColumn: {
     flex: 2.1,
-    gap: 22,
+    gap: 24,
+    minWidth: 0,
   },
   leftColumnNarrow: {
     width: '100%',
@@ -1662,8 +1710,8 @@ const styles = StyleSheet.create({
   /* Right Timeline Column */
   rightColumn: {
     flex: 1,
-    minWidth: 320,
-    gap: 22,
+    minWidth: 340,
+    gap: 24,
   },
   rightColumnNarrow: {
     width: '100%',
@@ -1674,52 +1722,52 @@ const styles = StyleSheet.create({
 
   /* Card Containers */
   cardContainer: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 22,
+    borderRadius: 24,
     padding: 22,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
-    shadowColor: '#081E3E',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.04,
-    shadowRadius: 10,
-    elevation: 2,
     gap: 18,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+    elevation: 2,
   },
   cardHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    flexWrap: 'wrap',
+    gap: 8,
   },
   cardMainHeading: {
     fontSize: 18,
     fontWeight: '800',
-    color: '#081E3E',
     letterSpacing: -0.3,
   },
   cardSubHeading: {
     fontSize: 15,
     fontWeight: '800',
-    color: '#081E3E',
+  },
+  cardSubTagline: {
+    fontSize: 11,
+    color: '#64748B',
+    marginTop: 2,
   },
 
   /* Period Pill Filters (Week, Month, Year) */
   periodPillGroup: {
     flexDirection: 'row',
-    backgroundColor: '#F1F5F9',
-    borderRadius: 20,
+    borderRadius: 16,
     padding: 3,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
   },
   periodBtn: {
-    paddingHorizontal: 14,
+    paddingHorizontal: 12,
     paddingVertical: 5,
-    borderRadius: 16,
+    borderRadius: 12,
   },
   periodBtnActive: {
-    backgroundColor: '#081E3E', // Navy active
-    shadowColor: '#081E3E',
+    backgroundColor: '#0F1F38',
+    shadowColor: '#0F1F38',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.2,
     shadowRadius: 4,
@@ -1733,393 +1781,369 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
 
-  /* Small Period Filter for sub-cards */
-  periodPillGroupSmall: {
+  /* 4 Stat Cards Grid */
+  statCardsGrid: {
     flexDirection: 'row',
-    backgroundColor: '#F1F5F9',
-    borderRadius: 16,
-    padding: 2.5,
-  },
-  periodBtnSmall: {
-    paddingHorizontal: 9,
-    paddingVertical: 3.5,
-    borderRadius: 14,
-  },
-  periodBtnSmallActive: {
-    backgroundColor: '#081E3E',
-  },
-  periodBtnSmallText: {
-    fontSize: 10.5,
-    fontWeight: '700',
-    color: '#64748B',
-  },
-  periodBtnSmallTextActive: {
-    color: '#FFFFFF',
-  },
-
-  /* ------------------------------------------------------------------ */
-  /* CARD 1: STATISTICS ROW (4 STAT BOXES)                              */
-  /* ------------------------------------------------------------------ */
-  statCardsRow: {
-    flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: 14,
   },
-  statCardsRowNarrow: {
-    flexWrap: 'wrap',
-    gap: 10,
-  },
-  statBox: {
-    flex: 1,
-    backgroundColor: '#F8FAFC',
-    borderRadius: 18,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    gap: 8,
-  },
-  statBoxNarrow: {
-    minWidth: 140,
-    padding: 13,
-  },
-  /* HIGHLIGHTED TEAL CARD (The signature card from reference) */
   statBoxTealHighlight: {
-    backgroundColor: '#00B894', // Vibrant Teal
-    borderColor: '#00A383',
-    shadowColor: '#00B894',
+    flex: 1,
+    minWidth: 140,
+    backgroundColor: '#0D9488',
+    padding: 18,
+    borderRadius: 18,
+    justifyContent: 'space-between',
+    gap: 14,
+    shadowColor: '#0D9488',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.28,
+    shadowOpacity: 0.25,
     shadowRadius: 10,
     elevation: 4,
+  },
+  statBoxStandard: {
+    flex: 1,
+    minWidth: 140,
+    padding: 18,
+    borderRadius: 18,
+    borderWidth: 1,
+    justifyContent: 'space-between',
+    gap: 14,
   },
   statBoxTopRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     justifyContent: 'space-between',
   },
-  statNumberTeal: {
+  statNumberWhite: {
     fontSize: 28,
     fontWeight: '800',
     color: '#FFFFFF',
-    lineHeight: 32,
+    letterSpacing: -0.5,
   },
-  statNumberNavy: {
+  statNumberStandard: {
     fontSize: 28,
     fontWeight: '800',
-    color: '#081E3E',
-    lineHeight: 32,
+    letterSpacing: -0.5,
   },
-  statUnitNavy: {
+  statUnitText: {
     fontSize: 13,
-    fontWeight: '700',
     color: '#64748B',
+    fontWeight: '500',
   },
-  statLabelTeal: {
+  statLabelWhite: {
     fontSize: 12,
-    fontWeight: '700',
-    color: '#E6F8F4',
+    fontWeight: '600',
+    color: '#CCFBF1',
   },
   statLabelMuted: {
     fontSize: 12,
     fontWeight: '600',
     color: '#64748B',
   },
-  pssLabelRow: {
+  statLabelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  pillBadgeWhite: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.25)',
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 12,
+    gap: 2,
+  },
+  pillBadgeWhiteText: {
+    fontSize: 10.5,
+    fontWeight: '800',
+    color: '#FFFFFF',
+  },
+  pillBadgeTealSubtle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(13, 148, 136, 0.12)',
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 12,
+    gap: 2,
+  },
+  pillBadgeTealSubtleText: {
+    fontSize: 10.5,
+    fontWeight: '800',
+    color: '#0D9488',
+  },
+  pillBadgeEmeraldSubtle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(16, 185, 129, 0.12)',
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 12,
+    gap: 2,
+  },
+  pillBadgeEmeraldSubtleText: {
+    fontSize: 10.5,
+    fontWeight: '800',
+    color: '#10B981',
+  },
+
+  /* Next Appointments Section */
+  counterBadgeTeal: {
+    backgroundColor: '#F0FDFA',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 12,
+  },
+  counterBadgeTealText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#0D9488',
+  },
+  viewAllApptsBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
   },
-  pillBadgeTeal: {
+  viewAllApptsBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#0D9488',
+  },
+  nextApptsListWrap: {
+    gap: 12,
+  },
+  nextApptItemCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 3,
-    backgroundColor: 'rgba(255, 255, 255, 0.85)',
-    paddingHorizontal: 7,
-    paddingVertical: 2.5,
-    borderRadius: 10,
+    justifyContent: 'space-between',
+    padding: 14,
+    borderRadius: 18,
+    borderWidth: 1,
+    gap: 12,
+    flexWrap: 'wrap',
   },
-  pillBadgeTealText: {
-    fontSize: 10.5,
-    fontWeight: '800',
-    color: '#081E3E',
-  },
-  pillBadgeGreen: {
+  nextApptLeftCol: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 3,
-    backgroundColor: '#E6F8F4',
-    paddingHorizontal: 7,
-    paddingVertical: 2.5,
-    borderRadius: 10,
+    gap: 12,
+    flex: 1,
+    minWidth: 260,
   },
-  pillBadgeGreenText: {
-    fontSize: 10.5,
-    fontWeight: '800',
-    color: '#00B894',
-  },
-  pillBadgeTealLight: {
+  nextApptTimeBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 3,
-    backgroundColor: '#E0F2FE',
-    paddingHorizontal: 7,
-    paddingVertical: 2.5,
-    borderRadius: 10,
+    gap: 5,
+    backgroundColor: '#F0FDFA',
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    borderRadius: 12,
   },
-  pillBadgeTealLightText: {
-    fontSize: 10.5,
+  nextApptTimeText: {
+    fontSize: 11.5,
+    fontWeight: '700',
+    color: '#0D9488',
+  },
+  nextApptAvatarBox: {
+    width: 38,
+    height: 38,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  nextApptAvatarText: {
+    fontSize: 12,
     fontWeight: '800',
-    color: '#0284C7',
   },
-
-  /* ------------------------------------------------------------------ */
-  /* CARD 2: DIAGNOSES BAR CHART & BREAKDOWN                            */
-  /* ------------------------------------------------------------------ */
-  dropdownSelectorPill: {
+  nextApptMetaCol: {
+    flex: 1,
+    gap: 2,
+  },
+  nextApptName: {
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  nextApptDemographics: {
+    fontSize: 11,
+    color: '#64748B',
+  },
+  bloodGroupPill: {
+    backgroundColor: '#FFE4E6',
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    borderRadius: 8,
+  },
+  bloodGroupText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#E11D48',
+  },
+  nextApptCondition: {
+    fontSize: 11.5,
+    color: '#64748B',
+  },
+  nextApptRightCol: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  statusPillBox: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: '#F1F5F9',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
+    backgroundColor: 'rgba(100, 116, 139, 0.1)',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 14,
   },
-  dropdownSelectorText: {
-    fontSize: 11.5,
-    fontWeight: '700',
-    color: '#475569',
+  statusDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
   },
-  dropdownSelectorPillSmall: {
+  statusPillText: {
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  startConsultBtnTeal: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    backgroundColor: '#F1F5F9',
-    paddingHorizontal: 9,
-    paddingVertical: 4,
+    gap: 6,
+    backgroundColor: '#0D9488',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
     borderRadius: 12,
+    shadowColor: '#0D9488',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 2,
   },
-  dropdownSelectorTextSmall: {
-    fontSize: 11,
+  startConsultBtnText: {
+    fontSize: 11.5,
     fontWeight: '700',
-    color: '#475569',
+    color: '#FFFFFF',
   },
-  diagnosesContentRow: {
+
+  /* Analytics Grid Row */
+  analyticsGridRow: {
+    flexDirection: 'row',
+    gap: 20,
+  },
+  analyticsGridRowNarrow: {
+    flexDirection: 'column',
+    gap: 20,
+  },
+  subCardHalf: {
+    flex: 1,
+    minWidth: 260,
+  },
+
+  /* Bar Chart Styling */
+  chartWrapper: {
+    height: 160,
+    justifyContent: 'flex-end',
+    paddingTop: 16,
+  },
+  barChartContainer: {
     flexDirection: 'row',
     alignItems: 'flex-end',
     justifyContent: 'space-between',
-    gap: 28,
+    height: 140,
+    paddingHorizontal: 10,
   },
-  diagnosesContentRowNarrow: {
-    gap: 20,
-  },
-  barChartPillarsWrap: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    gap: 12,
-    flex: 1.2,
-    paddingBottom: 4,
-  },
-  barChartPillarsWrapNarrow: {
-    flex: 1.1,
-    minHeight: 160,
-  },
-  barColumnContainer: {
+  barColumn: {
     alignItems: 'center',
-    gap: 6,
     flex: 1,
-  },
-  barPctLabel: {
-    fontSize: 10.5,
-    fontWeight: '700',
-    color: '#64748B',
-  },
-  barPctLabelHighlight: {
-    color: '#00B894',
-    fontWeight: '800',
+    height: '100%',
+    justifyContent: 'flex-end',
+    gap: 8,
   },
   barTrack: {
-    width: '100%',
-    maxWidth: 38,
-    height: 145,
-    backgroundColor: '#F1F5F9',
-    borderRadius: 18,
+    width: 18,
+    flex: 1,
+    backgroundColor: 'rgba(13, 148, 136, 0.08)',
+    borderRadius: 8,
     justifyContent: 'flex-end',
     overflow: 'hidden',
   },
   barFill: {
     width: '100%',
-    borderRadius: 18,
+    borderRadius: 8,
   },
-  barFillPrimary: {
-    backgroundColor: '#00B894', // Main top diagnosis in Teal
-  },
-  barFillTealMid: {
-    backgroundColor: '#14B8A6',
-  },
-  barFillNavySoft: {
-    backgroundColor: '#081E3E', // Navy accent pillars
-  },
-  diagnosesLegendGrid: {
-    flexDirection: 'row',
-    gap: 24,
-    flex: 1.1,
-    paddingBottom: 6,
-  },
-  diagnosesLegendGridNarrow: {
-    flex: 1.3,
-    gap: 18,
-  },
-  diagnosesLegendCol: {
-    flex: 1,
-    gap: 12,
-    minWidth: 105,
-  },
-  diagnosesItemRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 8,
-  },
-  diagnosesCodeText: {
-    fontSize: 12.5,
+  barDayLabel: {
+    fontSize: 10.5,
     fontWeight: '600',
-    color: '#081E3E',
-    flexShrink: 1,
+    color: '#64748B',
   },
-  diagnosesPctText: {
-    fontSize: 12.5,
+  barDayLabelActive: {
+    color: '#0D9488',
     fontWeight: '800',
-    color: '#00B894',
-    marginLeft: 4,
-    minWidth: 32,
-    textAlign: 'right',
   },
 
-  /* ------------------------------------------------------------------ */
-  /* CARDS 3 & 4: BOTTOM SPLIT (NEW PATIENTS CHART & PATIENTS LIST)     */
-  /* ------------------------------------------------------------------ */
-  bottomSplitRow: {
+  /* Patients Follow-up List */
+  dropdownSelectorPill: {
     flexDirection: 'row',
-    gap: 22,
-  },
-  bottomSplitRowNarrow: {
-    gap: 16,
-  },
-  subCardHalf: {
-    flex: 1,
-    gap: 14,
-  },
-  counterBadge: {
-    backgroundColor: '#E2E8F0',
-    paddingHorizontal: 7,
-    paddingVertical: 1.5,
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
     borderRadius: 10,
   },
-  counterBadgeText: {
-    fontSize: 10.5,
-    fontWeight: '800',
-    color: '#475569',
-  },
-  chartVisualWrapper: {
-    height: 145,
-    position: 'relative',
-    justifyContent: 'space-between',
-    paddingBottom: 22,
-  },
-  chartGridLine: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    height: 16,
-  },
-  chartAxisNum: {
-    fontSize: 9.5,
-    color: '#94A3B8',
-    width: 14,
-    textAlign: 'right',
-  },
-  gridDashed: {
-    flex: 1,
-    height: 1,
-    backgroundColor: '#F1F5F9',
-  },
-  daysAxisRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingLeft: 24,
-    paddingRight: 6,
-    marginTop: 6,
-  },
-  dayLabelText: {
-    fontSize: 10,
-    color: '#94A3B8',
-    fontWeight: '600',
-  },
-  chartLegendRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 16,
-    paddingTop: 4,
-  },
-  legendItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-  },
-  legendDot: {
-    width: 7,
-    height: 7,
-    borderRadius: 3.5,
-  },
-  legendText: {
+  dropdownSelectorText: {
     fontSize: 11,
+    fontWeight: '700',
     color: '#64748B',
-    fontWeight: '600',
   },
-
-  /* Patients items in list */
-  patientItemListGroup: {
+  followupListWrap: {
     gap: 10,
   },
-  patientListItem: {
+  followupItemRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    paddingVertical: 5,
+    padding: 10,
+    borderRadius: 16,
+    gap: 10,
   },
-  patientListAvatar: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+  followupAvatarBox: {
+    width: 34,
+    height: 34,
+    borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  patientListAvatarText: {
-    fontSize: 12,
+  followupAvatarText: {
+    fontSize: 11.5,
     fontWeight: '800',
   },
-  patientListInfoCol: {
+  followupInfoCol: {
     flex: 1,
     gap: 2,
   },
-  patientListNameText: {
-    fontSize: 13,
+  followupName: {
+    fontSize: 12.5,
     fontWeight: '800',
-    color: '#081E3E',
   },
-  patientListSubText: {
+  followupSubText: {
     fontSize: 11,
     color: '#64748B',
-    fontWeight: '500',
   },
-  moreActionBtn: {
-    padding: 6,
+  followupBadgePill: {
+    backgroundColor: '#F0FDFA',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 10,
+  },
+  followupBadgeText: {
+    fontSize: 10.5,
+    fontWeight: '700',
+    color: '#0D9488',
   },
 
-  /* ------------------------------------------------------------------ */
-  /* CARD: GO FOR MEDIUNIFY LONG BANNER BOX                             */
-  /* ------------------------------------------------------------------ */
+  /* Go for MediUnify Banner Card */
   goMediUnifyBannerCard: {
-    backgroundColor: '#081E3E', // Deep Navy theme matching dashboard aesthetic
+    backgroundColor: '#0F1F38',
     borderRadius: 20,
     paddingHorizontal: 22,
     paddingVertical: 18,
@@ -2128,18 +2152,15 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     borderWidth: 1,
     borderColor: 'rgba(0, 184, 148, 0.35)',
-    shadowColor: '#081E3E',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.12,
-    shadowRadius: 10,
-    elevation: 3,
     gap: 16,
+    flexWrap: 'wrap',
   },
   goMediUnifyLeftContent: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 14,
     flex: 1,
+    minWidth: 260,
   },
   goMediUnifyIconBox: {
     width: 44,
@@ -2159,7 +2180,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '800',
     color: '#FFFFFF',
-    letterSpacing: -0.2,
   },
   goMediUnifyPill: {
     backgroundColor: 'rgba(0, 184, 148, 0.2)',
@@ -2168,7 +2188,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   goMediUnifyPillText: {
-    fontSize: 10.5,
+    fontSize: 10,
     fontWeight: '800',
     color: '#00B894',
     textTransform: 'uppercase',
@@ -2176,7 +2196,6 @@ const styles = StyleSheet.create({
   goMediUnifySubText: {
     fontSize: 12,
     color: '#94A3B8',
-    fontWeight: '500',
     lineHeight: 16,
   },
   goMediUnifyActionBtn: {
@@ -2187,11 +2206,6 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     borderRadius: 12,
     gap: 6,
-    shadowColor: '#00B894',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.25,
-    shadowRadius: 6,
-    elevation: 2,
   },
   goMediUnifyActionBtnText: {
     fontSize: 12.5,
@@ -2199,592 +2213,238 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
 
-  /* ------------------------------------------------------------------ */
-  /* RIGHT COLUMN: SCHEDULE TIMELINE STYLES                             */
-  /* ------------------------------------------------------------------ */
-  scheduleCard: {
-    gap: 14,
-  },
-  counterBadgeTeal: {
-    backgroundColor: '#E6F8F4',
-    paddingHorizontal: 8,
+  /* Schedule Timeline (Right Column) */
+  scheduleCountBadge: {
+    backgroundColor: '#0F1F38',
+    paddingHorizontal: 7,
     paddingVertical: 2,
     borderRadius: 10,
-    borderWidth: 1,
-    borderColor: '#00B894',
   },
-  counterBadgeTealText: {
+  scheduleCountBadgeText: {
     fontSize: 11,
     fontWeight: '800',
     color: '#00B894',
   },
-  scheduleDateRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingBottom: 2,
-  },
-  scheduleDateHeading: {
-    fontSize: 13,
+  scheduleDateLabel: {
+    fontSize: 12,
     fontWeight: '700',
-    color: '#081E3E',
+    color: '#0D9488',
   },
-
-  /* IN-PERSON / VIDEO TOGGLE AT TOP OF SCHEDULE CARD */
-  scheduleFilterToggleRow: {
+  timelineFilterBar: {
     flexDirection: 'row',
-    backgroundColor: '#F1F5F9',
-    borderRadius: 12,
+    borderRadius: 14,
     padding: 3,
     gap: 4,
-    marginVertical: 4,
   },
-  scheduleFilterToggleBtn: {
+  timelineFilterBtn: {
     flex: 1,
-    flexDirection: 'row',
+    paddingVertical: 6,
     alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 7,
-    paddingHorizontal: 6,
-    borderRadius: 9,
-    gap: 4,
+    borderRadius: 10,
   },
-  scheduleFilterToggleBtnActiveAll: {
-    backgroundColor: '#081E3E',
-    shadowColor: '#081E3E',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 4,
-    elevation: 2,
+  timelineFilterBtnActive: {
+    backgroundColor: '#0F1F38',
   },
-  scheduleFilterToggleBtnActiveInPerson: {
-    backgroundColor: '#081E3E',
-    shadowColor: '#081E3E',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  scheduleFilterToggleBtnActiveVideo: {
-    backgroundColor: '#00B894',
-    shadowColor: '#00B894',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  scheduleFilterToggleText: {
-    fontSize: 11.5,
-    fontWeight: '700',
-    color: '#64748B',
-  },
-  scheduleFilterToggleTextActive: {
-    color: '#FFFFFF',
-  },
-
-  /* TIMELINE CONTAINER & AXIS */
-  timelineContainer: {
-    position: 'relative',
-    paddingLeft: 2,
-    gap: 16,
-    marginTop: 4,
-  },
-  verticalTimelineAxis: {
-    position: 'absolute',
-    left: 58,
-    top: 14,
-    bottom: 24,
-    width: 2,
-    backgroundColor: '#E2E8F0',
-  },
-  timelineSlotBlock: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 12,
-  },
-  timeAxisCol: {
-    width: 58,
-    paddingTop: 8,
-    position: 'relative',
-    alignItems: 'flex-start',
-  },
-  timeAxisLabel: {
+  timelineFilterBtnText: {
     fontSize: 11,
     fontWeight: '700',
     color: '#64748B',
   },
-  timelineNodeDot: {
+  timelineFilterBtnTextActive: {
+    color: '#FFFFFF',
+  },
+  timelineGuideWrapper: {
+    position: 'relative',
+    gap: 16,
+    paddingLeft: 4,
+  },
+  verticalTimelineRule: {
     position: 'absolute',
-    right: -6,
-    top: 12,
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: '#FFFFFF',
-    borderWidth: 2.5,
-    zIndex: 2,
+    left: 10,
+    top: 14,
+    bottom: 20,
+    width: 2,
+    backgroundColor: 'rgba(13, 148, 136, 0.25)',
   },
-  timelineNodeDotTeal: {
-    borderColor: '#00B894',
+  timelineSlotRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 14,
+    position: 'relative',
   },
-  timelineNodeDotNavy: {
-    borderColor: '#081E3E',
-  },
-  timelineNodeDotNext: {
+  timelineNodeCircle: {
     width: 12,
     height: 12,
     borderRadius: 6,
-    right: -7,
-    borderColor: '#00B894',
-    backgroundColor: '#00B894',
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
+    marginTop: 6,
+    zIndex: 2,
   },
-  timelineSlotContent: {
+  timelineNodeCircleNormal: {
+    backgroundColor: '#94A3B8',
+  },
+  timelineNodeCircleActive: {
+    backgroundColor: '#0D9488',
+  },
+  timelineSlotContentBox: {
     flex: 1,
+    gap: 6,
   },
-
-  /* CURRENT TIME DASHED LINE */
-  currentTimeLineRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    marginVertical: 4,
-  },
-  currentTimeBadge: {
-    backgroundColor: '#081E3E',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
-  },
-  currentTimeBadgeText: {
-    fontSize: 10,
+  timelineSlotTime: {
+    fontSize: 11.5,
     fontWeight: '800',
-    color: '#FFFFFF',
+    color: '#64748B',
   },
-  currentTimeDashedRule: {
-    flex: 1,
-    height: 1,
-    borderStyle: 'dashed',
+  timelineCard: {
+    borderRadius: 18,
     borderWidth: 1,
-    borderColor: '#081E3E',
+    padding: 14,
+    gap: 10,
   },
-
-  /* PATIENT CONSULTATION CARD */
-  patientScheduleCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    padding: 16,
-    minHeight: 180,
-    gap: 12,
-    shadowColor: '#081E3E',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    elevation: 3,
-  },
-  patientScheduleCardNext: {
-    backgroundColor: '#F0FDF9',
-    borderColor: '#00B894',
+  timelineCardNext: {
     borderWidth: 1.5,
-    shadowColor: '#00B894',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 10,
-    elevation: 4,
   },
-  patientScheduleCardVideo: {
-    borderLeftWidth: 4,
-    borderLeftColor: '#00B894',
-  },
-  patientScheduleCardInPerson: {
-    borderLeftWidth: 4,
-    borderLeftColor: '#081E3E',
-  },
-
-  patientScheduleHeaderRow: {
+  timelineCardHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    gap: 8,
   },
-  patientScheduleProfileInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    flex: 1,
-  },
-  patientScheduleAvatar: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+  timelineAvatar: {
+    width: 32,
+    height: 32,
+    borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  patientScheduleAvatarText: {
-    fontSize: 13,
+  timelineAvatarText: {
+    fontSize: 11.5,
     fontWeight: '800',
   },
-  patientScheduleNameCol: {
-    flex: 1,
-  },
-  patientScheduleNameText: {
-    fontSize: 14,
+  timelinePatientName: {
+    fontSize: 12.5,
     fontWeight: '800',
-    color: '#081E3E',
   },
-  nextBadgePill: {
-    backgroundColor: '#00B894',
-    paddingHorizontal: 6,
-    paddingVertical: 1.5,
-    borderRadius: 6,
+  nextPillTag: {
+    backgroundColor: '#0D9488',
+    paddingHorizontal: 5,
+    paddingVertical: 1,
+    borderRadius: 4,
   },
-  nextBadgeText: {
-    fontSize: 9,
+  nextPillTagText: {
+    fontSize: 8.5,
     fontWeight: '800',
     color: '#FFFFFF',
-    textTransform: 'uppercase',
   },
-  patientScheduleMetaText: {
-    fontSize: 11,
+  timelinePatientMeta: {
+    fontSize: 10.5,
     color: '#64748B',
-    marginTop: 1,
   },
-
-  /* CONSULTATION TYPE PILL */
-  channelPillBadge: {
+  channelBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 3.5,
-    borderRadius: 12,
-  },
-  channelPillBadgeVideo: {
-    backgroundColor: '#E6F8F4',
-    borderWidth: 1,
-    borderColor: 'rgba(0, 184, 148, 0.3)',
-  },
-  channelPillBadgeInPerson: {
-    backgroundColor: '#F1F5F9',
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-  },
-  channelPillBadgeText: {
-    fontSize: 10.5,
-    fontWeight: '800',
-  },
-
-  /* REASON & LOCATION BOX */
-  patientScheduleDetailsBox: {
-    backgroundColor: '#F8FAFC',
+    paddingHorizontal: 7,
+    paddingVertical: 3,
     borderRadius: 10,
-    padding: 9,
-    gap: 5,
   },
-  patientScheduleDetailRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
+  channelBadgeVideo: {
+    backgroundColor: '#F0FDFA',
   },
-  patientScheduleReasonText: {
-    fontSize: 12,
+  channelBadgeInPerson: {
+    backgroundColor: '#F1F5F9',
+  },
+  channelBadgeText: {
+    fontSize: 10,
     fontWeight: '700',
-    color: '#081E3E',
-    flex: 1,
   },
-  patientScheduleRoomText: {
-    fontSize: 11,
-    color: '#64748B',
-    flex: 1,
-  },
-
-  /* TIMINGS UNDER PATIENT NAME & GENDER */
-  patientScheduleTimeUnderRow: {
+  clockTimePill: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
-    marginTop: 5,
-    backgroundColor: '#F0FDF9',
     paddingHorizontal: 8,
-    paddingVertical: 3.5,
-    borderRadius: 6,
+    paddingVertical: 4,
+    borderRadius: 8,
     alignSelf: 'flex-start',
-    borderWidth: 1,
-    borderColor: 'rgba(0, 184, 148, 0.25)',
   },
-  patientScheduleTimeUnderText: {
-    fontSize: 11,
+  clockTimePillText: {
+    fontSize: 10.5,
     fontWeight: '700',
-    color: '#047857',
+    color: '#0D9488',
   },
-
-  /* ACTION BUTTONS ROW INSIDE CARD */
-  patientScheduleCardActionsRow: {
+  reasonRoomBox: {
+    borderTopWidth: 1,
+    paddingTop: 8,
+    gap: 2,
+  },
+  reasonText: {
+    fontSize: 11.5,
+    fontWeight: '700',
+  },
+  roomRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  roomText: {
+    fontSize: 10.5,
+    color: '#64748B',
+  },
+  timelineActionsRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    marginTop: 4,
-    paddingTop: 10,
-    borderTopWidth: 1,
-    borderTopColor: '#F1F5F9',
+    paddingTop: 4,
   },
-  patientDetailsBtn: {
+  btnDetailsSecondary: {
     flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    paddingVertical: 9,
-    paddingHorizontal: 10,
+    paddingVertical: 7,
     borderRadius: 10,
-    backgroundColor: '#F1F5F9',
-    borderWidth: 1.2,
-    borderColor: '#CBD5E1',
-  },
-  patientDetailsBtnText: {
-    fontSize: 11.5,
-    fontWeight: '800',
-    color: '#081E3E',
-  },
-  patientDirectCtaBtnVideo: {
-    flex: 1.25,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    paddingVertical: 9,
-    paddingHorizontal: 12,
-    borderRadius: 10,
-    backgroundColor: '#00B894',
-    shadowColor: '#00B894',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.18,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  patientDirectCtaBtnInPerson: {
-    flex: 1.25,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    paddingVertical: 9,
-    paddingHorizontal: 12,
-    borderRadius: 10,
-    backgroundColor: '#081E3E',
-    shadowColor: '#081E3E',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.18,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  patientDirectCtaBtnText: {
-    fontSize: 11.5,
-    fontWeight: '800',
-    color: '#FFFFFF',
-  },
-
-  /* EMPTY STATE */
-  scheduleEmptyBox: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 36,
-    gap: 10,
-  },
-  scheduleEmptyTitle: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#64748B',
-  },
-  scheduleEmptyResetBtn: {
-    backgroundColor: '#081E3E',
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 8,
-  },
-  scheduleEmptyResetText: {
-    fontSize: 11.5,
-    fontWeight: '700',
-    color: '#FFFFFF',
-  },
-
-  /* ------------------------------------------------------------------ */
-  /* MODAL STYLES                                                       */
-  /* ------------------------------------------------------------------ */
-  modalBackdrop: {
-    flex: 1,
-    backgroundColor: 'rgba(8, 30, 62, 0.65)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-  modalCardBox: {
-    width: '100%',
-    maxWidth: 520,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 22,
-    overflow: 'hidden',
-    shadowColor: '#081E3E',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.2,
-    shadowRadius: 24,
-    elevation: 10,
-  },
-  modalHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E2E8F0',
-    backgroundColor: '#F8FAFC',
-  },
-  modalHeaderInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  modalAvatar: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  modalAvatarText: {
-    fontSize: 16,
-    fontWeight: '800',
-  },
-  modalPatientName: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: '#081E3E',
-  },
-  modalPatientMeta: {
-    fontSize: 11.5,
-    color: '#64748B',
-    marginTop: 2,
-  },
-  modalCloseBtn: {
-    padding: 6,
-  },
-  modalBody: {
-    padding: 20,
-    gap: 14,
-  },
-  modalFieldBox: {
-    backgroundColor: '#F8FAFC',
-    borderRadius: 12,
-    padding: 12,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
-    gap: 3,
+    alignItems: 'center',
   },
-  modalFieldLabel: {
+  btnDetailsSecondaryText: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#64748B',
-    textTransform: 'uppercase',
   },
-  modalFieldValue: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#081E3E',
-  },
-  modalVitalsGrid: {
-    flexDirection: 'row',
-    gap: 10,
-  },
-  modalVitalItem: {
+  btnActionTeal: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
-    borderRadius: 12,
-    padding: 10,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    gap: 2,
-  },
-  vitalTag: {
-    fontSize: 10.5,
-    color: '#64748B',
-    fontWeight: '600',
-  },
-  vitalVal: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: '#081E3E',
-  },
-  vitalSub: {
-    fontSize: 9.5,
-    color: '#94A3B8',
-  },
-  modalActionsRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'flex-end',
-    gap: 12,
-    padding: 16,
-    borderTopWidth: 1,
-    borderTopColor: '#E2E8F0',
-    backgroundColor: '#F8FAFC',
-  },
-  modalBtnSecondary: {
-    paddingHorizontal: 16,
-    paddingVertical: 10,
+    justifyContent: 'center',
+    gap: 4,
+    backgroundColor: '#0D9488',
+    paddingVertical: 7,
     borderRadius: 10,
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#CBD5E1',
   },
-  modalBtnSecondaryText: {
-    fontSize: 12.5,
+  btnActionTealText: {
+    fontSize: 11,
     fontWeight: '700',
-    color: '#475569',
-  },
-  modalBtnPrimary: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 18,
-    paddingVertical: 10,
-    borderRadius: 10,
-    backgroundColor: '#00B894', // Teal button
-  },
-  modalBtnPrimaryText: {
-    fontSize: 12.5,
-    fontWeight: '800',
     color: '#FFFFFF',
   },
 
-  /* DASHBOARD FOOTER (NAVY BLUE THEMED) */
+  /* FOOTER */
   dashboardFooter: {
     marginTop: 24,
-    backgroundColor: '#081E3E', // Navy Blue Background
+    backgroundColor: '#0F1F38',
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: '#1E3A66',
-    padding: 26,
+    borderColor: '#1E293B',
+    padding: 24,
     gap: 20,
-    shadowColor: '#081E3E',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.16,
-    shadowRadius: 16,
-    elevation: 4,
   },
   footerTopRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 24,
+    gap: 20,
     justifyContent: 'space-between',
-    paddingBottom: 22,
+    paddingBottom: 20,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.1)',
+    borderBottomColor: 'rgba(255, 255, 255, 0.08)',
   },
   footerBrandCol: {
     flex: 1.4,
-    minWidth: 260,
+    minWidth: 240,
     gap: 10,
   },
   footerLogoRow: {
@@ -2804,33 +2464,29 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '800',
     color: '#FFFFFF',
-    letterSpacing: -0.3,
   },
   footerVersionPill: {
-    backgroundColor: 'rgba(0, 184, 148, 0.18)',
-    paddingHorizontal: 7,
+    backgroundColor: 'rgba(0, 184, 148, 0.2)',
+    paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 6,
-    borderWidth: 1,
-    borderColor: '#00B894',
   },
   footerVersionText: {
-    fontSize: 10,
+    fontSize: 9.5,
     fontWeight: '800',
     color: '#00B894',
   },
   footerBrandTagline: {
-    fontSize: 12,
+    fontSize: 11.5,
     color: '#94A3B8',
-    lineHeight: 18,
-    maxWidth: 380,
+    lineHeight: 16,
+    maxWidth: 360,
   },
   footerCertRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     alignItems: 'center',
-    gap: 14,
-    marginTop: 4,
+    gap: 12,
   },
   footerCertItem: {
     flexDirection: 'row',
@@ -2838,132 +2494,467 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   footerCertText: {
-    fontSize: 11,
-    fontWeight: '600',
+    fontSize: 10.5,
     color: '#CBD5E1',
+    fontWeight: '600',
   },
   footerLinksCol: {
-    flex: 1.1,
-    minWidth: 200,
+    flex: 1,
+    minWidth: 180,
     gap: 10,
   },
   footerLinksHeading: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '800',
     color: '#FFFFFF',
-    letterSpacing: 0.2,
     textTransform: 'uppercase',
   },
   footerLinksGrid: {
-    gap: 8,
+    gap: 7,
   },
   footerLinkText: {
-    fontSize: 12.5,
+    fontSize: 12,
     color: '#CBD5E1',
     fontWeight: '500',
   },
   footerStatusCol: {
-    flex: 1.2,
-    minWidth: 220,
+    flex: 1.1,
+    minWidth: 200,
     gap: 10,
   },
   footerStatusCard: {
-    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
     borderRadius: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.12)',
     padding: 12,
-    gap: 6,
+    gap: 5,
   },
   statusPulseRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 7,
+    gap: 6,
   },
   statusPulseDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
+    width: 7,
+    height: 7,
+    borderRadius: 3.5,
     backgroundColor: '#00B894',
   },
   statusPulseText: {
-    fontSize: 11.5,
+    fontSize: 11,
     fontWeight: '700',
     color: '#FFFFFF',
   },
   statusMetricText: {
-    fontSize: 11,
+    fontSize: 10.5,
     color: '#94A3B8',
-  },
-  footerHelplineBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
-    borderRadius: 10,
-    padding: 10,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.12)',
-  },
-  helplineTitle: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#FFFFFF',
-  },
-  helplinePhone: {
-    fontSize: 11,
-    color: '#00B894',
-    fontWeight: '700',
   },
   footerBottomBar: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
     alignItems: 'center',
     justifyContent: 'space-between',
-    gap: 12,
   },
   footerCopyrightText: {
-    fontSize: 11,
+    fontSize: 10.5,
     color: '#94A3B8',
-    flex: 1,
-    minWidth: 260,
-  },
-  footerPolicyRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  footerPolicyLink: {
-    fontSize: 11,
-    color: '#CBD5E1',
-    fontWeight: '600',
-  },
-  footerPolicySep: {
-    fontSize: 10,
-    color: '#475569',
   },
 
-  /* NOTIFICATION POPOVER (MATCHING REFERENCE IMAGE) */
-  bellButtonActive: {
-    backgroundColor: '#E0F2FE',
-    borderColor: '#0284C7',
+  /* MODALS & DRAWERS */
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(11, 22, 41, 0.65)',
+    justifyContent: 'center',
+    alignItems: 'flex-end',
   },
+  slideOverDrawerCard: {
+    width: '100%',
+    maxWidth: 540,
+    height: '100%',
+    borderLeftWidth: 1,
+    padding: 24,
+    justifyContent: 'space-between',
+  },
+  drawerHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingBottom: 16,
+    borderBottomWidth: 1,
+  },
+  drawerHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  drawerAvatar: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    backgroundColor: '#0D9488',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  drawerAvatarText: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#FFFFFF',
+  },
+  drawerPatientName: {
+    fontSize: 16,
+    fontWeight: '800',
+  },
+  drawerPatientDetails: {
+    fontSize: 11.5,
+    fontWeight: '600',
+    color: '#0D9488',
+    marginTop: 2,
+  },
+  drawerCloseBtn: {
+    padding: 4,
+  },
+  drawerBodyScroll: {
+    flex: 1,
+    paddingVertical: 18,
+  },
+  vitalsGridThree: {
+    flexDirection: 'row',
+    gap: 10,
+    marginBottom: 16,
+  },
+  vitalCardBox: {
+    flex: 1,
+    padding: 12,
+    borderRadius: 14,
+    borderWidth: 1,
+    alignItems: 'center',
+    gap: 4,
+  },
+  vitalLabel: {
+    fontSize: 9.5,
+    fontWeight: '700',
+    color: '#64748B',
+    textTransform: 'uppercase',
+  },
+  vitalValuePrimary: {
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  clinicalObjectiveCard: {
+    backgroundColor: 'rgba(13, 148, 136, 0.08)',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(13, 148, 136, 0.25)',
+    padding: 14,
+    gap: 6,
+    marginBottom: 18,
+  },
+  clinicalObjectiveHeader: {
+    fontSize: 10.5,
+    fontWeight: '800',
+    color: '#0D9488',
+    textTransform: 'uppercase',
+  },
+  clinicalObjectiveBody: {
+    fontSize: 12.5,
+    fontWeight: '600',
+    lineHeight: 18,
+  },
+  medicationsSection: {
+    marginBottom: 18,
+    gap: 8,
+  },
+  sectionSmallHeading: {
+    fontSize: 10.5,
+    fontWeight: '800',
+    color: '#64748B',
+    textTransform: 'uppercase',
+  },
+  medicationList: {
+    gap: 8,
+  },
+  medicationRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 12,
+    borderRadius: 12,
+  },
+  medicationName: {
+    fontSize: 12.5,
+    fontWeight: '800',
+  },
+  medicationInstruction: {
+    fontSize: 11,
+    color: '#64748B',
+    marginTop: 2,
+  },
+  activePillBadge: {
+    backgroundColor: '#F0FDFA',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+  },
+  activePillText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#0D9488',
+  },
+  labReportsSection: {
+    gap: 8,
+    marginBottom: 16,
+  },
+  labReportCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 12,
+    borderRadius: 14,
+    borderWidth: 1,
+  },
+  pdfBadge: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    backgroundColor: 'rgba(13, 148, 136, 0.15)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  pdfBadgeText: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#0D9488',
+  },
+  labReportTitle: {
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  labReportMeta: {
+    fontSize: 10.5,
+    color: '#94A3B8',
+    marginTop: 2,
+  },
+  btnViewReport: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  btnViewReportText: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  drawerFooterRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingTop: 14,
+    borderTopWidth: 1,
+    gap: 12,
+  },
+  btnDrawerClose: {
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 12,
+  },
+  btnDrawerCloseText: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  btnDrawerStartConsult: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#0D9488',
+    paddingHorizontal: 18,
+    paddingVertical: 10,
+    borderRadius: 12,
+  },
+  btnDrawerStartConsultText: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#FFFFFF',
+  },
+
+  /* Active Consultation Modal */
+  consultModalCard: {
+    width: '90%',
+    maxWidth: 500,
+    borderRadius: 22,
+    borderWidth: 1,
+    padding: 20,
+    gap: 16,
+    alignSelf: 'center',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.25,
+    shadowRadius: 20,
+    elevation: 10,
+  },
+  consultPulseDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: '#0D9488',
+  },
+  consultModalTitle: {
+    fontSize: 15,
+    fontWeight: '800',
+  },
+  consultModalBody: {
+    gap: 12,
+  },
+  consultInfoBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 12,
+    borderRadius: 12,
+  },
+  consultConditionText: {
+    fontSize: 13,
+    fontWeight: '700',
+    marginTop: 2,
+  },
+  consultBloodText: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#E11D48',
+    marginTop: 2,
+  },
+  fieldLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#64748B',
+  },
+  consultTextArea: {
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 10,
+    fontSize: 12.5,
+    minHeight: 70,
+    textAlignVertical: 'top',
+  },
+  consultInput: {
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 10,
+    fontSize: 12.5,
+  },
+  consultModalFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    gap: 10,
+    paddingTop: 10,
+    borderTopWidth: 1,
+  },
+  btnConsultSecondary: {
+    paddingHorizontal: 14,
+    paddingVertical: 9,
+    borderRadius: 10,
+  },
+  btnConsultSecondaryText: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  btnConsultPrimary: {
+    backgroundColor: '#0D9488',
+    paddingHorizontal: 16,
+    paddingVertical: 9,
+    borderRadius: 10,
+  },
+  btnConsultPrimaryText: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#FFFFFF',
+  },
+
+  /* Dossier Modal */
+  dossierModalCard: {
+    width: '92%',
+    maxWidth: 580,
+    borderRadius: 22,
+    borderWidth: 1,
+    padding: 22,
+    gap: 16,
+    alignSelf: 'center',
+    maxHeight: '90%',
+  },
+  dossierBadge: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: '#0D9488',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  dossierBadgeText: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#FFFFFF',
+  },
+  dossierModalTitle: {
+    fontSize: 15,
+    fontWeight: '800',
+  },
+  dossierModalSub: {
+    fontSize: 11,
+    color: '#64748B',
+  },
+  dossierMetricsGrid: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  dossierMetricBox: {
+    flex: 1,
+    padding: 12,
+    borderRadius: 14,
+    borderWidth: 1,
+    gap: 4,
+  },
+  dossierMetricValue: {
+    fontSize: 16,
+    fontWeight: '800',
+  },
+  dossierPatientRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 12,
+    borderRadius: 14,
+  },
+  dossierFooterRow: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    paddingTop: 10,
+    borderTopWidth: 1,
+  },
+  btnDossierClose: {
+    backgroundColor: '#0D9488',
+    paddingHorizontal: 16,
+    paddingVertical: 9,
+    borderRadius: 10,
+  },
+  btnDossierCloseText: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#FFFFFF',
+  },
+
+  /* NOTIFICATION POPOVER */
   notifPopoverCard: {
     position: 'absolute',
     top: 48,
     right: 0,
     width: 360,
     maxHeight: 520,
-    backgroundColor: '#FFFFFF',
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
     padding: 16,
-    shadowColor: '#081E3E',
-    shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.18,
-    shadowRadius: 28,
-    elevation: 20,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.15,
+    shadowRadius: 24,
+    elevation: 16,
     zIndex: 10000,
   },
   notifHeaderRow: {
@@ -2975,8 +2966,6 @@ const styles = StyleSheet.create({
   notifTitle: {
     fontSize: 16,
     fontWeight: '800',
-    color: '#081E3E',
-    letterSpacing: -0.2,
   },
   notifMarkAllText: {
     fontSize: 12,
@@ -2988,7 +2977,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     borderBottomWidth: 1,
-    borderBottomColor: '#F1F5F9',
     paddingBottom: 8,
     marginBottom: 10,
   },
@@ -3005,25 +2993,25 @@ const styles = StyleSheet.create({
   },
   notifTabBtnActive: {
     borderBottomWidth: 2,
-    borderBottomColor: '#081E3E',
+    borderBottomColor: '#0D9488',
   },
   notifTabText: {
-    fontSize: 13,
+    fontSize: 12.5,
     fontWeight: '600',
     color: '#64748B',
   },
   notifTabTextActive: {
-    color: '#081E3E',
-    fontWeight: '700',
+    color: '#0D9488',
+    fontWeight: '800',
   },
   notifTabCountPill: {
-    backgroundColor: '#081E3E',
+    backgroundColor: '#0D9488',
     borderRadius: 10,
     paddingHorizontal: 6,
     paddingVertical: 1,
   },
   notifTabCountText: {
-    fontSize: 10,
+    fontSize: 9.5,
     fontWeight: '800',
     color: '#FFFFFF',
   },
@@ -3031,26 +3019,25 @@ const styles = StyleSheet.create({
     padding: 4,
   },
   notifListScroll: {
-    maxHeight: 380,
+    maxHeight: 360,
   },
   notifItemRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: 12,
-    paddingVertical: 12,
+    paddingVertical: 10,
     borderBottomWidth: 1,
-    borderBottomColor: '#F8FAFC',
   },
   notifAvatarBox: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 2,
   },
   notifAvatarText: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '800',
   },
   notifContentCol: {
@@ -3063,17 +3050,16 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   notifItemName: {
-    fontSize: 13,
+    fontSize: 12.5,
     fontWeight: '700',
-    color: '#081E3E',
-    lineHeight: 18,
+    lineHeight: 17,
     flex: 1,
   },
   notifUnreadDot: {
     width: 7,
     height: 7,
     borderRadius: 3.5,
-    backgroundColor: '#0284C7',
+    backgroundColor: '#0D9488',
     marginTop: 5,
   },
   notifItemSub: {
@@ -3088,26 +3074,25 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   notifDeclineBtn: {
-    paddingVertical: 6,
-    paddingHorizontal: 14,
+    paddingVertical: 5,
+    paddingHorizontal: 12,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
-    backgroundColor: '#FFFFFF',
+    borderColor: '#CBD5E1',
   },
   notifDeclineBtnText: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '600',
     color: '#64748B',
   },
   notifAcceptBtn: {
-    paddingVertical: 6,
-    paddingHorizontal: 16,
+    paddingVertical: 5,
+    paddingHorizontal: 14,
     borderRadius: 8,
-    backgroundColor: '#0284C7',
+    backgroundColor: '#0D9488',
   },
   notifAcceptBtnText: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '700',
     color: '#FFFFFF',
   },
@@ -3115,44 +3100,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: '#F1F5F9',
+    backgroundColor: 'rgba(100, 116, 139, 0.1)',
     borderRadius: 6,
     paddingHorizontal: 8,
-    paddingVertical: 5,
+    paddingVertical: 4,
     alignSelf: 'flex-start',
-    marginTop: 8,
+    marginTop: 6,
   },
   notifAttachmentText: {
-    fontSize: 11.5,
+    fontSize: 11,
     fontWeight: '600',
-    color: '#334155',
-  },
-  notifFooterRow: {
-    paddingTop: 10,
-    marginTop: 6,
-    borderTopWidth: 1,
-    borderTopColor: '#F1F5F9',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'flex-end',
-  },
-  notifAvatarStack: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  notifMiniAvatar: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1.5,
-    borderColor: '#FFFFFF',
-  },
-  notifAvatarMoreText: {
-    fontSize: 10,
-    fontWeight: '700',
     color: '#64748B',
-    marginLeft: 6,
   },
 });

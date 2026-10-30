@@ -55,7 +55,7 @@ const CLINICAL_SKILLS_CATALOG = [
   'Pain Management & Symptom Relief',
 ];
 
-export default function NurseAuthPage({ onNavigate }) {
+export default function NurseAuthPage({ onNavigate, initialMode = 'signin' }) {
   const {
     nurseProfile,
     saveNurseRegistration,
@@ -63,7 +63,16 @@ export default function NurseAuthPage({ onNavigate }) {
     setRegistrationStatus,
   } = useHomeNursing();
 
-  const [isRegister, setIsRegister] = useState(false);
+  const [isRegister, setIsRegister] = useState(initialMode === 'signup');
+
+  // Sync mode whenever initialMode prop updates
+  React.useEffect(() => {
+    setIsRegister(initialMode === 'signup');
+    if (initialMode === 'signup') {
+      setRegStep(1);
+    }
+  }, [initialMode]);
+
   const [regStep, setRegStep] = useState(1); // 1: Personal, 2: PUC, 3: Degree, 4: Years & Clinical, 5: Photo & Sign, 6: Password & Agreement
 
   // Login Form State
@@ -260,15 +269,26 @@ export default function NurseAuthPage({ onNavigate }) {
       {/* 1 & 3: TOP HEADER WITH LOGO AND "medi" WHITE + "unify" GREEN */}
       {/* ======================================================== */}
       <View style={styles.navBar}>
-        {/* Back to Home */}
-        <TouchableOpacity
-          style={styles.backBtn}
-          onPress={() => onNavigate('landing')}
-          activeOpacity={0.7}
-        >
-          <Ionicons name="arrow-back" size={17} color="#CBD5E1" />
-          <Text style={styles.backBtnText}>Back to Home</Text>
-        </TouchableOpacity>
+        {/* Back to Home & Change Role */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          <TouchableOpacity
+            style={styles.backBtn}
+            onPress={() => onNavigate('landing')}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="home-outline" size={15} color="#CBD5E1" />
+            <Text style={styles.backBtnText}>Home</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.backBtn}
+            onPress={() => onNavigate(isRegister ? 'role-signup' : 'role-signin')}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="people-outline" size={15} color="#CBD5E1" />
+            <Text style={styles.backBtnText}>Roles</Text>
+          </TouchableOpacity>
+        </View>
 
         {/* Center Logo and Brand: "medi" in white and "unify" in green */}
         <View style={styles.logoRow}>

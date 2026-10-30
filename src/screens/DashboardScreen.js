@@ -1504,6 +1504,18 @@ const navCards = [
     screen: 'Availability',
     image: require('../assets/quick_availability.jpg'),
   },
+  {
+    key: 'ETest',
+    label: 'e-Test',
+    screen: 'TestRequirement',
+    image: require('../assets/quick_etest.jpg'),
+  },
+  {
+    key: 'EPrescribe',
+    label: 'e-Prescribe',
+    screen: 'Prescription',
+    image: require('../assets/quick_eprescribe.jpg'),
+  },
 ];
 
 const nextAppointmentData = {

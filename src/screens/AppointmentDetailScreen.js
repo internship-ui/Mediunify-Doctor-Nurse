@@ -16,6 +16,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, typography, radius } from '../theme/colors';
 import { patients } from '../data/mockData';
 import RescheduleModal from '../components/RescheduleModal';
+import ConsultationBottomSheet from '../components/ConsultationBottomSheet';
 
 const COMMON_DOC_TYPES = [
   'Blood Test / CBC',
@@ -44,7 +45,9 @@ export default function AppointmentDetailScreen({ navigation, route }) {
   const mode = route?.params?.mode || appointment.type || 'In-Person';
   const isInPerson = mode === 'In-Person';
 
-  const [accepted, setAccepted] = useState(appointment.status === 'confirmed');
+  const [accepted, setAccepted] = useState(
+    appointment.status === 'confirmed' || !!route?.params?.justAccepted
+  );
   const [currentDate, setCurrentDate] = useState(appointment.date);
   const [currentTime, setCurrentTime] = useState(appointment.time);
   const [rescheduleModalVisible, setRescheduleModalVisible] = useState(false);
@@ -95,16 +98,17 @@ export default function AppointmentDetailScreen({ navigation, route }) {
   const [docInstructions, setDocInstructions] = useState('');
   const [docError, setDocError] = useState('');
 
+  const [consultBottomSheetVisible, setConsultBottomSheetVisible] = useState(false);
+  const [consultationResult, setConsultationResult] = useState(null);
+
   const handleStartConsultation = () => {
     if (isInPerson) {
-      navigation.navigate('Consultation', {
-        patientId: patientRecord.id,
-        appointmentId: appointment.id,
-      });
+      setConsultBottomSheetVisible(true);
     } else {
       navigation.navigate('VideoConsultation', {
         patientId: patientRecord.id,
         appointmentId: appointment.id,
+        appointment: appointment,
       });
     }
   };
@@ -435,7 +439,7 @@ export default function AppointmentDetailScreen({ navigation, route }) {
         <View style={styles.card}>
           <View style={styles.cardHeaderRow}>
             <View style={styles.cardHeaderIcon}>
-              <Ionicons name="heart-pulse-outline" size={17} color="#071E42" />
+              <Ionicons name="pulse-outline" size={17} color="#071E42" />
             </View>
             <Text style={styles.cardHeaderTitle}>Patient Vitals</Text>
           </View>
@@ -929,7 +933,7 @@ export default function AppointmentDetailScreen({ navigation, route }) {
             color="#FFFFFF"
           />
           <Text style={styles.footerPrimaryBtnText}>
-            {isInPerson ? 'Star Consult' : 'Start Video Call'}
+            {isInPerson ? 'Start Consult' : 'Join Call'}
           </Text>
         </TouchableOpacity>
       </View>
@@ -1058,6 +1062,29 @@ export default function AppointmentDetailScreen({ navigation, route }) {
         }}
         onClose={() => setRescheduleModalVisible(false)}
         onConfirmReschedule={handleConfirmReschedule}
+      />
+
+      {/* ========================================================
+          IN-PERSON CONSULTATION BOTTOM SHEET (SLIDES UP FROM BOTTOM)
+          Step 1 -> 2 -> 3 -> 4 -> 5
+      ======================================================== */}
+      <ConsultationBottomSheet
+        visible={consultBottomSheetVisible}
+        onClose={() => setConsultBottomSheetVisible(false)}
+        appointment={{
+          ...appointment,
+          date: currentDate,
+          time: currentTime,
+        }}
+        patient={patientRecord}
+        onComplete={(plan) => {
+          setConsultBottomSheetVisible(false);
+          setConsultationResult(plan);
+          Alert.alert(
+            'Consultation Completed',
+            `In-person consultation for ${appointment.patient} recorded.\nNext visit: ${plan.followUpDate} at ${plan.followUpTime} (${plan.followUpMode}).`
+          );
+        }}
       />
     </View>
   );

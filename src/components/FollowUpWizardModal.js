@@ -58,12 +58,12 @@ const PRESET_INSTRUCTIONS = [
   'Visit diagnostic lab within 3 days',
 ];
 
-const MONTHS_SHORT = [
-  'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-  'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+const MONTH_NAMES = [
+  'January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December',
 ];
 
-const WEEK_DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const WEEK_DAYS = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
 
 export default function FollowUpWizardModal({
   visible,
@@ -72,25 +72,34 @@ export default function FollowUpWizardModal({
   onComplete,
 }) {
   // Wizard active step: 1 = Consult Notes, 2 = Prescribe, 3 = Testing, 4 = Date Schedule
-  const [step, setStep] = useState(1);
+  const [currentStep, setCurrentStep] = useState(1);
 
-  // STEP 1: Consult Notes State
-  const [complaint, setComplaint] = useState('');
-  const [symptoms, setSymptoms] = useState('');
-  const [diagnosis, setDiagnosis] = useState('');
-  const [consultNotes, setConsultNotes] = useState('');
+  // ----------------------------------------------------
+  // STEP 1 STATE: CONSULT NOTES
+  // (with one typing field)
+  // ----------------------------------------------------
+  const [consultNotes, setConsultNotes] = useState(
+    patient?.condition
+      ? `Patient presented for follow-up evaluation regarding: ${patient.condition}.\nVitals stable on review. Advised regular medication compliance, adequate rest, and hydration.`
+      : 'Follow-up clinical assessment conducted. Vitals stable. Patient advised regular medication adherence and routine monitoring.'
+  );
 
-  // STEP 2: Prescribe State
+  // ----------------------------------------------------
+  // STEP 2 STATE: PRESCRIBE (e-Prescription)
+  // Search, Medicine Name, Dosage Name, Frequency, Duration, Schedule Timings Pop-up, Add to Prescription
+  // ----------------------------------------------------
   const [medSearch, setMedSearch] = useState('');
   const [isMedDropdownOpen, setIsMedDropdownOpen] = useState(false);
-  const [medDuration, setMedDuration] = useState('5 Days');
-  const [specialInstructions, setSpecialInstructions] = useState('');
-  const [isTimingModalOpen, setIsTimingModalOpen] = useState(false);
+  const [medicineName, setMedicineName] = useState('Paracetamol 500mg');
+  const [dosageName, setDosageName] = useState('1 tablet');
+  const [frequency, setFrequency] = useState('1 daily');
+  const [medDuration, setMedDuration] = useState('5 days');
 
-  // Daily Tablet Schedule & Food Timing State (Matching User's Image)
+  // Daily Tablet Schedule & Food Timing Sub-Modal State
+  const [isTimingModalOpen, setIsTimingModalOpen] = useState(false);
   const [morningTiming, setMorningTiming] = useState({
-    tabletOption: 'ON', // 'ON' | 'OFF'
-    foodTiming: 'after', // 'before' | 'after'
+    tabletOption: 'ON',
+    foodTiming: 'after',
   });
   const [afternoonTiming, setAfternoonTiming] = useState({
     tabletOption: 'OFF',
@@ -101,96 +110,52 @@ export default function FollowUpWizardModal({
     foodTiming: 'after',
   });
 
-  const [prescribedList, setPrescribedList] = useState([]);
+  // Prescribed items list
+  const [prescribedList, setPrescribedList] = useState([
+    {
+      id: 'p1',
+      name: 'Pantoprazole 40mg',
+      dosage: '1 tablet',
+      frequency: '1 daily',
+      duration: '5 days',
+      timingSummary: 'Morn: ON (Before Food) · Aftern: OFF · Night: OFF',
+    },
+  ]);
 
-  // STEP 3: Testing State
-  const [testSearch, setTestSearch] = useState('');
-  const [isTestDropdownOpen, setIsTestDropdownOpen] = useState(false);
-  const [testInstructions, setTestInstructions] = useState('');
-  const [testsList, setTestsList] = useState([]);
-
-  // STEP 4: Date Schedule State
-  const [consultMode, setConsultMode] = useState('In-Person'); // 'In-Person' | 'Video'
-  const [selectedDate, setSelectedDate] = useState('17 Oct 2026');
-  const [timeShift, setTimeShift] = useState('10:00 AM');
-  const [isCalendarOpen, setIsCalendarOpen] = useState(false);
-  const [calYear, setCalYear] = useState(2026);
-  const [calMonth, setCalMonth] = useState(9); // October
-  const [calDay, setCalDay] = useState(17);
-
-  // FINAL SUBMISSION SUCCESS MODAL STATE
-  const [isSuccessModalOpen, setIsSuccessModalOpen] = useState(false);
-
-  // Filtered lists
   const filteredMedicines = useMemo(() => {
-    if (!medSearch.trim()) return MEDICINES_LIST.slice(0, 8);
-    const q = medSearch.toLowerCase();
-    return MEDICINES_LIST.filter((m) => m.toLowerCase().includes(q));
+    if (!medSearch.trim()) return MEDICINES_LIST;
+    return MEDICINES_LIST.filter((m) =>
+      m.toLowerCase().includes(medSearch.toLowerCase().trim())
+    );
   }, [medSearch]);
 
-  const filteredTests = useMemo(() => {
-    if (!testSearch.trim()) return TESTS_LIST.slice(0, 8);
-    const q = testSearch.toLowerCase();
-    return TESTS_LIST.filter((t) => t.toLowerCase().includes(q));
-  }, [testSearch]);
-
-  // Calendar days grid
-  const calendarDays = useMemo(() => {
-    const firstDay = new Date(calYear, calMonth, 1).getDay();
-    const daysInMonth = new Date(calYear, calMonth + 1, 0).getDate();
-    const days = [];
-    for (let i = 0; i < firstDay; i++) days.push(null);
-    for (let d = 1; d <= daysInMonth; d++) days.push(d);
-    return days;
-  }, [calYear, calMonth]);
-
-  // Reset wizard on open
-  const resetWizard = () => {
-    setStep(1);
-    setComplaint('');
-    setSymptoms('');
-    setDiagnosis('');
-    setConsultNotes('');
-    setMedSearch('');
-    setIsMedDropdownOpen(false);
-    setMedDuration('5 Days');
-    setSpecialInstructions('');
-    setIsTimingModalOpen(false);
-    setMorningTiming({ tabletOption: 'ON', foodTiming: 'after' });
-    setAfternoonTiming({ tabletOption: 'OFF', foodTiming: 'after' });
-    setNightTiming({ tabletOption: 'ON', foodTiming: 'after' });
-    setPrescribedList([]);
-    setTestSearch('');
-    setIsTestDropdownOpen(false);
-    setTestInstructions('');
-    setTestsList([]);
-    setConsultMode('In-Person');
-    setSelectedDate('17 Oct 2026');
-    setTimeShift('10:00 AM');
-    setIsCalendarOpen(false);
-    setIsSuccessModalOpen(false);
-  };
-
-  // Handle adding a medicine
   const handleAddMedicine = () => {
-    if (!medSearch.trim()) {
+    const name = medicineName.trim();
+    if (!name) {
       Alert.alert('Medicine Required', 'Please enter or select a medicine name.');
       return;
     }
+
+    const timingSummary = `Morn: ${
+      morningTiming.tabletOption === 'ON' ? 'ON (' + (morningTiming.foodTiming === 'before' ? 'Before Food' : 'After Food') + ')' : 'OFF'
+    } · Aftern: ${
+      afternoonTiming.tabletOption === 'ON' ? 'ON (' + (afternoonTiming.foodTiming === 'before' ? 'Before Food' : 'After Food') + ')' : 'OFF'
+    } · Night: ${
+      nightTiming.tabletOption === 'ON' ? 'ON (' + (nightTiming.foodTiming === 'before' ? 'Before Food' : 'After Food') + ')' : 'OFF'
+    }`;
+
     const newMed = {
-      id: Date.now().toString(),
-      name: medSearch.trim(),
-      duration: medDuration,
-      instructions: specialInstructions.trim(),
-      schedule: {
-        morning: morningTiming,
-        afternoon: afternoonTiming,
-        night: nightTiming,
-      },
+      id: `med-${Date.now()}`,
+      name,
+      dosage: dosageName.trim() || '1 tablet',
+      frequency: frequency.trim() || '1 daily',
+      duration: medDuration.trim() || '5 days',
+      timingSummary,
     };
+
     setPrescribedList((prev) => [...prev, newMed]);
+    setMedicineName('');
     setMedSearch('');
-    setSpecialInstructions('');
     setIsMedDropdownOpen(false);
   };
 
@@ -198,36 +163,48 @@ export default function FollowUpWizardModal({
     setPrescribedList((prev) => prev.filter((m) => m.id !== id));
   };
 
-  // Handle adding preset instruction
-  const handleToggleInstruction = (text) => {
-    if (testInstructions.includes(text)) {
-      setTestInstructions((prev) =>
-        prev
-          .replace(text, '')
-          .replace(/,\s*,/g, ',')
-          .trim()
-      );
-    } else {
-      setTestInstructions((prev) =>
-        prev.trim() ? `${prev.trim()}, ${text}` : text
-      );
-    }
-  };
+  // ----------------------------------------------------
+  // STEP 3 STATE: TESTS (Lab Investigations)
+  // Search, Test Name, Patient Preparation / Diet Requirement, Clinical Instructions, Add to Test Required
+  // ----------------------------------------------------
+  const [testSearch, setTestSearch] = useState('');
+  const [isTestDropdownOpen, setIsTestDropdownOpen] = useState(false);
+  const [testName, setTestName] = useState('Complete Blood Count (CBC)');
+  const [patientPrep, setPatientPrep] = useState('Fasting 10 hrs');
+  const [labInstructions, setLabInstructions] = useState('Routine analysis');
+  const [testsList, setTestsList] = useState([
+    {
+      id: 't1',
+      name: 'Complete Blood Count (CBC)',
+      patientPrep: 'Fasting 10 hrs',
+      instructions: 'Routine analysis & serum check',
+    },
+  ]);
 
-  // Handle adding a test
+  const filteredTests = useMemo(() => {
+    if (!testSearch.trim()) return TESTS_LIST;
+    return TESTS_LIST.filter((t) =>
+      t.toLowerCase().includes(testSearch.toLowerCase().trim())
+    );
+  }, [testSearch]);
+
   const handleAddTest = () => {
-    if (!testSearch.trim()) {
-      Alert.alert('Test Required', 'Please enter or select a lab test name.');
+    const name = testName.trim();
+    if (!name) {
+      Alert.alert('Test Name Required', 'Please enter or select a diagnostic test name.');
       return;
     }
+
     const newTest = {
-      id: Date.now().toString(),
-      name: testSearch.trim(),
-      instructions: testInstructions.trim(),
+      id: `test-${Date.now()}`,
+      name,
+      patientPrep: patientPrep.trim() || 'No special preparation',
+      instructions: labInstructions.trim() || 'Routine analysis',
     };
+
     setTestsList((prev) => [...prev, newTest]);
+    setTestName('');
     setTestSearch('');
-    setTestInstructions('');
     setIsTestDropdownOpen(false);
   };
 
@@ -235,268 +212,325 @@ export default function FollowUpWizardModal({
     setTestsList((prev) => prev.filter((t) => t.id !== id));
   };
 
-  // Quick calendar helpers
-  const handleQuickAddDays = (days) => {
-    const target = new Date();
-    target.setDate(target.getDate() + days);
-    setCalYear(target.getFullYear());
-    setCalMonth(target.getMonth());
-    setCalDay(target.getDate());
-    const formatted = `${target.getDate()} ${MONTHS_SHORT[target.getMonth()]} ${target.getFullYear()}`;
-    setSelectedDate(formatted);
-    setIsCalendarOpen(false);
+  // ----------------------------------------------------
+  // STEP 4 STATE: DATE SCHEDULE (DATE FIXING)
+  // Follow-up Required (Yes / No), Mode selection, Calendar popup, Time slots, Overview
+  // ----------------------------------------------------
+  const [followUpRequired, setFollowUpRequired] = useState('yes'); // 'yes' | 'no'
+  const [consultMode, setConsultMode] = useState('In-Person'); // 'In-Person' | 'Video'
+  const [isCalendarOpen, setIsCalendarOpen] = useState(false);
+  const [calYear, setCalYear] = useState(2026);
+  const [calMonth, setCalMonth] = useState(9); // October
+  const [calDay, setCalDay] = useState(20);
+  const [selectedSlot, setSelectedSlot] = useState('11:30 AM');
+
+  const selectedDate = `${calDay < 10 ? '0' + calDay : calDay} ${MONTH_NAMES[calMonth].slice(0, 3)} ${calYear}`;
+
+  const calendarDays = useMemo(() => {
+    const firstDayIndex = new Date(calYear, calMonth, 1).getDay();
+    const daysInMonth = new Date(calYear, calMonth + 1, 0).getDate();
+    const daysArray = [];
+    for (let i = 0; i < firstDayIndex; i++) {
+      daysArray.push(null);
+    }
+    for (let d = 1; d <= daysInMonth; d++) {
+      daysArray.push(d);
+    }
+    return daysArray;
+  }, [calYear, calMonth]);
+
+  const handleSelectDay = (day) => {
+    if (day) {
+      setCalDay(day);
+      setIsCalendarOpen(false);
+    }
   };
 
-  const handleSelectDay = (d) => {
-    if (!d) return;
-    setCalDay(d);
-    const formatted = `${d} ${MONTHS_SHORT[calMonth]} ${calYear}`;
-    setSelectedDate(formatted);
-    setIsCalendarOpen(false);
-  };
+  // ----------------------------------------------------
+  // STEP 5: NOTES DOWN OK CONFIRMATION POP-UP
+  // ----------------------------------------------------
+  const [isSuccessModalOpen, setIsSuccessModalOpen] = useState(false);
 
-  // Submit complete follow-up
   const handleSubmitPlan = () => {
-    // Show notes down OK popup
     setIsSuccessModalOpen(true);
   };
 
   const handleFinalOk = () => {
     setIsSuccessModalOpen(false);
-    resetWizard();
     if (onComplete) {
       onComplete({
         patient: patient?.name,
-        diagnosis,
-        notes: consultNotes,
+        consultNotes,
         prescriptions: prescribedList,
         tests: testsList,
-        followUpDate: selectedDate,
-        followUpMode: consultMode,
+        followUpRequired,
+        followUpDate: followUpRequired === 'yes' ? selectedDate : 'Not required',
+        followUpTime: followUpRequired === 'yes' ? selectedSlot : null,
+        followUpMode: followUpRequired === 'yes' ? consultMode : null,
       });
     }
-    onClose();
+    if (onClose) {
+      onClose();
+    }
   };
 
-  if (!visible) return null;
+  // Step transitions
+  const handleNext = () => {
+    if (currentStep < 4) {
+      setCurrentStep((s) => s + 1);
+    } else {
+      handleSubmitPlan();
+    }
+  };
+
+  const handleBack = () => {
+    if (currentStep > 1) {
+      setCurrentStep((s) => s - 1);
+    } else {
+      onClose();
+    }
+  };
+
+  const handleSkip = () => {
+    if (currentStep < 4) {
+      setCurrentStep((s) => s + 1);
+    }
+  };
+
+  const patientName = patient?.name || 'Patient';
+  const patientMeta = `${patient?.age || '32'} yrs · ${patient?.gender || 'Patient'}`;
 
   return (
     <Modal
       visible={visible}
       transparent
       animationType="slide"
-      onRequestClose={() => {
-        if (isTimingModalOpen) {
-          setIsTimingModalOpen(false);
-        } else if (isCalendarOpen) {
-          setIsCalendarOpen(false);
-        } else if (isSuccessModalOpen) {
-          setIsSuccessModalOpen(false);
-        } else {
-          onClose();
-        }
-      }}
+      onRequestClose={onClose}
     >
-      <KeyboardAvoidingView
-        style={styles.modalOverlay}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      >
-        <View style={styles.wizardContainer}>
-          {/* ====================================================
-              NAVY BLUE WIZARD HEADER
-          ==================================================== */}
-          <View style={styles.wizardHeader}>
-            <View style={styles.wizardHeaderTopRow}>
-              <View style={styles.wizardTitleWrap}>
-                <Text style={styles.wizardHeaderTitle}>Follow-up Treatment Plan</Text>
-                <Text style={styles.wizardHeaderSubtitle}>
-                  Patient: {patient?.name || 'Patient'} · Step {step} of 4
+      <View style={styles.sheetOverlay}>
+        <TouchableOpacity
+          style={styles.sheetBackdropDismiss}
+          activeOpacity={1}
+          onPress={onClose}
+        />
+        <KeyboardAvoidingView
+          style={styles.sheetContainer}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        >
+          {/* DRAG HANDLE BAR AT TOP - TAP TO CLOSE DOWN */}
+          <TouchableOpacity
+            style={styles.dragHandleContainer}
+            activeOpacity={0.8}
+            onPress={onClose}
+          >
+            <View style={styles.dragHandle} />
+          </TouchableOpacity>
+
+          {/* ======================================================
+              WHITE HEADER WITH NAVY BLUE TEXT (SPECIFIED BY USER)
+          ======================================================= */}
+          <View style={styles.sheetHeaderWhite}>
+            <View style={styles.headerTopRow}>
+              <View style={styles.headerTitleWrap}>
+                <View style={styles.followUpBadgePill}>
+                  <Ionicons name="repeat" size={13} color="#071E42" />
+                  <Text style={styles.followUpBadgeText}>FOLLOW-UP TREATMENT PLAN</Text>
+                </View>
+                <Text style={styles.patientTitleText}>{patientName}</Text>
+                <Text style={styles.patientMetaText}>
+                  {patientMeta} · Step {currentStep} of 4
                 </Text>
               </View>
+
               <TouchableOpacity
+                style={styles.headerCloseBtn}
                 onPress={onClose}
-                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                style={styles.closeBtn}
+                activeOpacity={0.7}
               >
-                <Ionicons name="close" size={20} color="#FFFFFF" />
+                <Ionicons name="close" size={20} color="#071E42" />
               </TouchableOpacity>
             </View>
 
-            {/* STEP PROGRESS BAR (1 ---> 2 ---> 3 ---> 4) */}
-            <View style={styles.stepIndicatorRow}>
-              {[
-                { num: 1, label: 'Consult' },
-                { num: 2, label: 'Prescribe' },
-                { num: 3, label: 'Testing' },
-                { num: 4, label: 'Schedule' },
-              ].map((s, idx) => {
-                const isActive = step === s.num;
-                const isPast = step > s.num;
-                return (
-                  <React.Fragment key={s.num}>
-                    <TouchableOpacity
-                      style={[
-                        styles.stepNode,
-                        isActive && styles.stepNodeActive,
-                        isPast && styles.stepNodePast,
-                      ]}
-                      onPress={() => setStep(s.num)}
-                      activeOpacity={0.8}
-                    >
-                      <Text
-                        style={[
-                          styles.stepNodeText,
-                          (isActive || isPast) && styles.stepNodeTextActive,
-                        ]}
-                      >
-                        {isPast ? '✓' : s.num}
-                      </Text>
-                      <Text
-                        style={[
-                          styles.stepNodeLabel,
-                          isActive && styles.stepNodeLabelActive,
-                        ]}
-                      >
-                        {s.label}
-                      </Text>
-                    </TouchableOpacity>
-                    {idx < 3 && (
-                      <View
-                        style={[
-                          styles.stepLine,
-                          step > idx + 1 && styles.stepLineActive,
-                        ]}
-                      />
-                    )}
-                  </React.Fragment>
-                );
-              })}
+            {/* 4-STEP PROGRESS INDICATOR ROW (WHITE HEADER THEMED WITH NAVY) */}
+            <View style={styles.stepProgressRow}>
+              {/* Step 1 */}
+              <View style={styles.stepNode}>
+                <Text
+                  style={[
+                    styles.stepNodeNumber,
+                    currentStep === 1 && styles.stepNodeNumberActive,
+                    currentStep > 1 && styles.stepNodeNumberPast,
+                  ]}
+                >
+                  {currentStep > 1 ? '✓' : '1'}
+                </Text>
+                <Text
+                  style={[
+                    styles.stepNodeLabel,
+                    currentStep === 1 && styles.stepNodeLabelActive,
+                  ]}
+                >
+                  Consult
+                </Text>
+              </View>
+
+              <View
+                style={[
+                  styles.stepLine,
+                  currentStep > 1 && styles.stepLineActive,
+                ]}
+              />
+
+              {/* Step 2 */}
+              <View style={styles.stepNode}>
+                <Text
+                  style={[
+                    styles.stepNodeNumber,
+                    currentStep === 2 && styles.stepNodeNumberActive,
+                    currentStep > 2 && styles.stepNodeNumberPast,
+                  ]}
+                >
+                  {currentStep > 2 ? '✓' : '2'}
+                </Text>
+                <Text
+                  style={[
+                    styles.stepNodeLabel,
+                    currentStep === 2 && styles.stepNodeLabelActive,
+                  ]}
+                >
+                  Prescribe
+                </Text>
+              </View>
+
+              <View
+                style={[
+                  styles.stepLine,
+                  currentStep > 2 && styles.stepLineActive,
+                ]}
+              />
+
+              {/* Step 3 */}
+              <View style={styles.stepNode}>
+                <Text
+                  style={[
+                    styles.stepNodeNumber,
+                    currentStep === 3 && styles.stepNodeNumberActive,
+                    currentStep > 3 && styles.stepNodeNumberPast,
+                  ]}
+                >
+                  {currentStep > 3 ? '✓' : '3'}
+                </Text>
+                <Text
+                  style={[
+                    styles.stepNodeLabel,
+                    currentStep === 3 && styles.stepNodeLabelActive,
+                  ]}
+                >
+                  Tests
+                </Text>
+              </View>
+
+              <View
+                style={[
+                  styles.stepLine,
+                  currentStep > 3 && styles.stepLineActive,
+                ]}
+              />
+
+              {/* Step 4 */}
+              <View style={styles.stepNode}>
+                <Text
+                  style={[
+                    styles.stepNodeNumber,
+                    currentStep === 4 && styles.stepNodeNumberActive,
+                  ]}
+                >
+                  4
+                </Text>
+                <Text
+                  style={[
+                    styles.stepNodeLabel,
+                    currentStep === 4 && styles.stepNodeLabelActive,
+                  ]}
+                >
+                  Schedule
+                </Text>
+              </View>
             </View>
           </View>
 
-          {/* ====================================================
-              STEP CONTENT BODY
-          ==================================================== */}
+          {/* ======================================================
+              SCROLLABLE BODY CONTENT (MIDDLE)
+          ======================================================= */}
           <ScrollView
-            style={styles.wizardScrollBody}
-            contentContainerStyle={styles.wizardScrollContent}
-            keyboardShouldPersistTaps="handled"
+            style={styles.sheetScrollBody}
+            contentContainerStyle={styles.sheetScrollContent}
             showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
           >
-            {/* ==================================================
+            {/* ----------------------------------------------------
                 STEP 1: CONSULT NOTES
-            =================================================== */}
-            {step === 1 && (
-              <View style={styles.stepSection}>
-                <View style={styles.sectionHeaderRow}>
-                  <View style={styles.stepIconWrap}>
-                    <Ionicons name="document-text-outline" size={18} color="#071E42" />
+                (with one typing field)
+            ----------------------------------------------------- */}
+            {currentStep === 1 && (
+              <View style={styles.stepContentWrap}>
+                <View style={styles.sectionHeaderBanner}>
+                  <View style={styles.sectionIconWrap}>
+                    <Ionicons name="document-text" size={18} color="#071E42" />
                   </View>
-                  <View>
-                    <Text style={styles.sectionHeaderTitle}>Step 1: Consultation Notes</Text>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.sectionHeaderTitle}>
+                      Clinical Consultation Notes
+                    </Text>
                     <Text style={styles.sectionHeaderSub}>
-                      Record symptoms, clinical findings and diagnosis
+                      Record consultation findings, examination observations, and doctor advice
                     </Text>
                   </View>
                 </View>
 
-                {/* Chief Complaint */}
-                <Text style={styles.inputLabel}>Chief Complaint / Reason for Follow-up</Text>
+                {/* Consult notes with one typing field */}
+                <Text style={styles.inputFieldLabel}>Consult Notes</Text>
                 <TextInput
-                  style={styles.textInput}
-                  placeholder="e.g. Fever, persistent dry cough, body fatigue for 4 days"
+                  style={styles.singleConsultNotesBox}
+                  placeholder="Type consult notes, clinical observations, patient findings, diagnosis and doctor advice here..."
                   placeholderTextColor="#94A3B8"
-                  value={complaint}
-                  onChangeText={setComplaint}
-                />
-
-                {/* Symptoms Observed */}
-                <Text style={styles.inputLabel}>Symptoms Observed</Text>
-                <TextInput
-                  style={styles.textInput}
-                  placeholder="e.g. Temperature 101°F, throat redness, congestion"
-                  placeholderTextColor="#94A3B8"
-                  value={symptoms}
-                  onChangeText={setSymptoms}
-                />
-
-                {/* Clinical Diagnosis */}
-                <Text style={styles.inputLabel}>Clinical Diagnosis</Text>
-                <TextInput
-                  style={styles.textInput}
-                  placeholder="e.g. Acute Upper Respiratory Tract Infection (URTI)"
-                  placeholderTextColor="#94A3B8"
-                  value={diagnosis}
-                  onChangeText={setDiagnosis}
-                />
-
-                {/* Consult Notes / Treatment Plan Advice */}
-                <Text style={styles.inputLabel}>Clinical Notes & Advice</Text>
-                <TextInput
-                  style={[styles.textInput, styles.textAreaInput]}
-                  placeholder="Advised plenty of hydration, warm saline gargle, bed rest, and to report if temperature exceeds 102°F..."
-                  placeholderTextColor="#94A3B8"
-                  multiline
-                  numberOfLines={4}
                   value={consultNotes}
                   onChangeText={setConsultNotes}
+                  multiline
+                  numberOfLines={9}
+                  textAlignVertical="top"
                 />
-
-                {/* NAVIGATION BUTTONS */}
-                <View style={styles.navButtonsRow}>
-                  <TouchableOpacity
-                    style={styles.btnSecondary}
-                    onPress={onClose}
-                    activeOpacity={0.8}
-                  >
-                    <Text style={styles.btnSecondaryText}>Cancel</Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    style={styles.btnSkip}
-                    onPress={() => setStep(2)}
-                    activeOpacity={0.8}
-                  >
-                    <Text style={styles.btnSkipText}>Skip</Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    style={styles.btnPrimary}
-                    onPress={() => setStep(2)}
-                    activeOpacity={0.85}
-                  >
-                    <Text style={styles.btnPrimaryText}>Continue to Prescribe</Text>
-                    <Ionicons name="arrow-forward" size={16} color="#FFFFFF" />
-                  </TouchableOpacity>
-                </View>
               </View>
             )}
 
-            {/* ==================================================
-                STEP 2: PRESCRIBE
-            =================================================== */}
-            {step === 2 && (
-              <View style={styles.stepSection}>
-                <View style={styles.sectionHeaderRow}>
-                  <View style={styles.stepIconWrap}>
-                    <Ionicons name="medkit-outline" size={18} color="#071E42" />
+            {/* ----------------------------------------------------
+                STEP 2: PRESCRIBE (e-Prescription)
+                (tall search, highlighted select, medicine name, dosage, frequency, duration, schedule timings pop-up, add to prescription, requirement lists)
+            ----------------------------------------------------- */}
+            {currentStep === 2 && (
+              <View style={styles.stepContentWrap}>
+                <View style={styles.sectionHeaderBanner}>
+                  <View style={styles.sectionIconWrap}>
+                    <Ionicons name="medkit" size={18} color="#071E42" />
                   </View>
-                  <View>
-                    <Text style={styles.sectionHeaderTitle}>Step 2: Prescribe Medication</Text>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.sectionHeaderTitle}>
+                      e-Prescription
+                    </Text>
                     <Text style={styles.sectionHeaderSub}>
-                      Add medicine name, duration, and food timing schedule
+                      Search or enter medicine, specify dosage, frequency, duration & schedule
                     </Text>
                   </View>
                 </View>
 
-                {/* Medicine Name with Search & Dropdown */}
-                <Text style={styles.inputLabel}>Medicine Name</Text>
+                {/* Search Medicine with Tall Box & Highlighted Select Button */}
+                <Text style={styles.inputFieldLabel}>Search Medicine</Text>
                 <View style={styles.searchDropdownWrap}>
-                  <View style={styles.searchInputBox}>
-                    <Ionicons name="search-outline" size={17} color="#071E42" />
+                  <View style={[styles.searchInputRow, styles.searchBoxTall]}>
+                    <Ionicons name="search" size={20} color="#071E42" />
                     <TextInput
-                      style={styles.searchInput}
-                      placeholder="Search or enter medicine (e.g. Paracetamol 500mg)"
+                      style={[styles.searchInputField, styles.searchInputFieldTall]}
+                      placeholder="Search medicine (e.g. Paracetamol, Amoxicillin)..."
                       placeholderTextColor="#94A3B8"
                       value={medSearch}
                       onChangeText={(t) => {
@@ -507,50 +541,77 @@ export default function FollowUpWizardModal({
                     />
                     {medSearch.length > 0 && (
                       <TouchableOpacity onPress={() => setMedSearch('')}>
-                        <Ionicons name="close-circle" size={16} color="#94A3B8" />
+                        <Ionicons name="close-circle" size={18} color="#94A3B8" />
                       </TouchableOpacity>
                     )}
                   </View>
 
-                  {/* Dropdown list */}
                   {isMedDropdownOpen && (
-                    <View style={styles.dropdownBox}>
-                      <ScrollView style={{ maxHeight: 150 }} nestedScrollEnabled>
+                    <View style={styles.dropdownListBox}>
+                      <ScrollView style={{ maxHeight: 180 }} nestedScrollEnabled>
                         {filteredMedicines.map((m) => (
-                          <TouchableOpacity
-                            key={m}
-                            style={styles.dropdownItem}
-                            onPress={() => {
-                              setMedSearch(m);
-                              setIsMedDropdownOpen(false);
-                            }}
-                          >
-                            <Ionicons name="medical" size={14} color="#071E42" />
-                            <Text style={styles.dropdownItemText}>{m}</Text>
-                          </TouchableOpacity>
+                          <View key={m} style={styles.dropdownItemRow}>
+                            <View style={styles.dropdownItemInfo}>
+                              <Ionicons name="medical" size={15} color="#071E42" />
+                              <Text style={styles.dropdownItemName}>{m}</Text>
+                            </View>
+                            <TouchableOpacity
+                              style={styles.dropdownHighlightSelectBtn}
+                              onPress={() => {
+                                setMedicineName(m);
+                                setMedSearch('');
+                                setIsMedDropdownOpen(false);
+                              }}
+                              activeOpacity={0.8}
+                            >
+                              <Text style={styles.dropdownHighlightSelectBtnText}>Select</Text>
+                            </TouchableOpacity>
+                          </View>
                         ))}
                       </ScrollView>
                     </View>
                   )}
                 </View>
 
-                {/* Duration */}
-                <Text style={styles.inputLabel}>Duration</Text>
-                <View style={styles.durationChipsRow}>
-                  {['3 Days', '5 Days', '7 Days', '10 Days', '15 Days', '1 Month'].map((d) => (
+                {/* Medicine Name with typing field */}
+                <Text style={styles.inputFieldLabel}>Medicine Name</Text>
+                <TextInput
+                  style={styles.textInputBox}
+                  placeholder="Medicine name (e.g. Paracetamol 500mg)"
+                  placeholderTextColor="#94A3B8"
+                  value={medicineName}
+                  onChangeText={setMedicineName}
+                />
+
+                {/* Dosage Name with typing field and add up buttons */}
+                <Text style={styles.inputFieldLabel}>Dosage Name</Text>
+                <TextInput
+                  style={styles.textInputBox}
+                  placeholder="e.g. 1 tablet, 2 tablets, 5 ml..."
+                  placeholderTextColor="#94A3B8"
+                  value={dosageName}
+                  onChangeText={setDosageName}
+                />
+                <View style={styles.quickAddPillsRow}>
+                  {['1 tablet', '2 tablets', '3 tablets', '7 tablets', '1 capsule', '5 ml', '10 ml'].map((d) => (
                     <TouchableOpacity
                       key={d}
                       style={[
-                        styles.durationChip,
-                        medDuration === d && styles.durationChipActive,
+                        styles.quickAddPill,
+                        dosageName === d && styles.quickAddPillActive,
                       ]}
-                      onPress={() => setMedDuration(d)}
+                      onPress={() => setDosageName(d)}
                       activeOpacity={0.8}
                     >
+                      <Ionicons
+                        name={dosageName === d ? 'checkmark-circle' : 'add-circle-outline'}
+                        size={13}
+                        color={dosageName === d ? '#FFFFFF' : '#071E42'}
+                      />
                       <Text
                         style={[
-                          styles.durationChipText,
-                          medDuration === d && styles.durationChipTextActive,
+                          styles.quickAddPillText,
+                          dosageName === d && styles.quickAddPillTextActive,
                         ]}
                       >
                         {d}
@@ -559,140 +620,174 @@ export default function FollowUpWizardModal({
                   ))}
                 </View>
 
-                {/* Daily Tablet Schedule & Food Timing Button (Matching Image) */}
-                <Text style={styles.inputLabel}>Daily Tablet Schedule & Food Timing</Text>
+                {/* Frequency with typing field and add up buttons */}
+                <Text style={styles.inputFieldLabel}>Frequency</Text>
+                <TextInput
+                  style={styles.textInputBox}
+                  placeholder="e.g. 1 daily, 2 daily..."
+                  placeholderTextColor="#94A3B8"
+                  value={frequency}
+                  onChangeText={setFrequency}
+                />
+                <View style={styles.quickAddPillsRow}>
+                  {['1 daily', '2 daily', '3 daily', 'As needed', 'Every 8 hrs'].map((f) => (
+                    <TouchableOpacity
+                      key={f}
+                      style={[
+                        styles.quickAddPill,
+                        frequency === f && styles.quickAddPillActive,
+                      ]}
+                      onPress={() => setFrequency(f)}
+                      activeOpacity={0.8}
+                    >
+                      <Ionicons
+                        name={frequency === f ? 'checkmark-circle' : 'add-circle-outline'}
+                        size={13}
+                        color={frequency === f ? '#FFFFFF' : '#071E42'}
+                      />
+                      <Text
+                        style={[
+                          styles.quickAddPillText,
+                          frequency === f && styles.quickAddPillTextActive,
+                        ]}
+                      >
+                        {f}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+
+                {/* Duration with typing field and add up buttons */}
+                <Text style={styles.inputFieldLabel}>Duration</Text>
+                <TextInput
+                  style={styles.textInputBox}
+                  placeholder="e.g. 3 days, 5 days, 14 days..."
+                  placeholderTextColor="#94A3B8"
+                  value={medDuration}
+                  onChangeText={setMedDuration}
+                />
+                <View style={styles.quickAddPillsRow}>
+                  {['3 days', '5 days', '7 days', '10 days', '14 days', '30 days'].map((dur) => (
+                    <TouchableOpacity
+                      key={dur}
+                      style={[
+                        styles.quickAddPill,
+                        medDuration === dur && styles.quickAddPillActive,
+                      ]}
+                      onPress={() => setMedDuration(dur)}
+                      activeOpacity={0.8}
+                    >
+                      <Ionicons
+                        name={medDuration === dur ? 'checkmark-circle' : 'add-circle-outline'}
+                        size={13}
+                        color={medDuration === dur ? '#FFFFFF' : '#071E42'}
+                      />
+                      <Text
+                        style={[
+                          styles.quickAddPillText,
+                          medDuration === dur && styles.quickAddPillTextActive,
+                        ]}
+                      >
+                        {dur}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+
+                {/* Schedule Timings with pop-up button below */}
+                <Text style={styles.inputFieldLabel}>Schedule Timings</Text>
+                <View style={styles.timingSummaryCard}>
+                  <Text style={styles.timingSummaryTitle}>Daily Schedule & Food Instructions</Text>
+                  <Text style={styles.timingSummaryText}>
+                    Morn: {morningTiming.tabletOption === 'ON' ? 'ON (' + (morningTiming.foodTiming === 'before' ? 'Before Food' : 'After Food') + ')' : 'OFF'}  |  
+                    Aftern: {afternoonTiming.tabletOption === 'ON' ? 'ON (' + (afternoonTiming.foodTiming === 'before' ? 'Before Food' : 'After Food') + ')' : 'OFF'}  |  
+                    Night: {nightTiming.tabletOption === 'ON' ? 'ON (' + (nightTiming.foodTiming === 'before' ? 'Before Food' : 'After Food') + ')' : 'OFF'}
+                  </Text>
+                </View>
                 <TouchableOpacity
-                  style={styles.timingTriggerBtn}
+                  style={styles.addTimingScheduleBtn}
                   onPress={() => setIsTimingModalOpen(true)}
                   activeOpacity={0.85}
                 >
-                  <View style={styles.timingTriggerLeft}>
-                    <View style={styles.timingIconWrap}>
-                      <Ionicons name="time" size={18} color="#071E42" />
-                    </View>
-                    <View>
-                      <Text style={styles.timingTriggerTitle}>
-                        Tablet Schedule & Food Timing
-                      </Text>
-                      <Text style={styles.timingTriggerSubtitle}>
-                        M: {morningTiming.tabletOption === 'ON' ? 'ON (' + morningTiming.foodTiming + ')' : 'OFF'} ·
-                        A: {afternoonTiming.tabletOption === 'ON' ? 'ON (' + afternoonTiming.foodTiming + ')' : 'OFF'} ·
-                        N: {nightTiming.tabletOption === 'ON' ? 'ON (' + nightTiming.foodTiming + ')' : 'OFF'}
-                      </Text>
-                    </View>
-                  </View>
-                  <View style={styles.timingBadgePill}>
-                    <Text style={styles.timingBadgeText}>Configure</Text>
-                    <Ionicons name="chevron-forward" size={14} color="#071E42" />
-                  </View>
+                  <Ionicons name="time" size={17} color="#071E42" />
+                  <Text style={styles.addTimingScheduleBtnText}>+ Configure Schedule Timings</Text>
                 </TouchableOpacity>
 
-                {/* Special Instructions (Optional) */}
-                <Text style={styles.inputLabel}>Special Instructions (Optional)</Text>
-                <TextInput
-                  style={styles.textInput}
-                  placeholder="e.g. Drink plenty of water. Do not consume on empty stomach."
-                  placeholderTextColor="#94A3B8"
-                  value={specialInstructions}
-                  onChangeText={setSpecialInstructions}
-                />
-
-                {/* Add to Prescription List button */}
+                {/* Add to Prescription Button */}
                 <TouchableOpacity
-                  style={styles.addMedicineBtn}
+                  style={styles.addToPrescriptionMainBtn}
                   onPress={handleAddMedicine}
                   activeOpacity={0.85}
                 >
-                  <Ionicons name="add-circle" size={18} color="#FFFFFF" />
-                  <Text style={styles.addMedicineBtnText}>Add Medicine to Prescription</Text>
+                  <Ionicons name="add-circle" size={19} color="#FFFFFF" />
+                  <Text style={styles.addToPrescriptionMainBtnText}>+ Add to Prescription</Text>
                 </TouchableOpacity>
 
-                {/* Currently Prescribed List */}
-                {prescribedList.length > 0 && (
-                  <View style={styles.prescribedListWrap}>
-                    <Text style={styles.prescribedListHeader}>
-                      Prescribed Medicines ({prescribedList.length})
-                    </Text>
-                    {prescribedList.map((item, idx) => (
-                      <View key={item.id} style={styles.prescribedCard}>
-                        <View style={{ flex: 1 }}>
-                          <Text style={styles.prescribedName}>
-                            {idx + 1}. {item.name}
-                          </Text>
-                          <Text style={styles.prescribedSub}>
-                            Duration: {item.duration} · M: {item.schedule.morning.tabletOption} | A: {item.schedule.afternoon.tabletOption} | N: {item.schedule.night.tabletOption}
-                          </Text>
-                          {!!item.instructions && (
-                            <Text style={styles.prescribedInst}>Note: {item.instructions}</Text>
-                          )}
+                {/* Prescription Requirement Lists */}
+                <View style={styles.addedListWrap}>
+                  <Text style={styles.addedListHeaderTitle}>
+                    Prescription Requirement Lists ({prescribedList.length})
+                  </Text>
+                  {prescribedList.length === 0 ? (
+                    <Text style={styles.emptyListHint}>No medicines added yet.</Text>
+                  ) : (
+                    prescribedList.map((med) => (
+                      <View key={med.id} style={styles.prescribedItemCard}>
+                        <View style={styles.prescribedItemTop}>
+                          <View style={{ flex: 1 }}>
+                            <Text style={styles.prescribedItemName}>{med.name}</Text>
+                            <Text style={styles.prescribedItemDuration}>
+                              Dosage: {med.dosage || '1 tablet'} · Frequency: {med.frequency || '1 daily'} · Duration: {med.duration}
+                            </Text>
+                          </View>
+                          <TouchableOpacity
+                            style={styles.deleteNoteBtn}
+                            onPress={() => handleRemoveMedicine(med.id)}
+                          >
+                            <Ionicons name="trash-outline" size={16} color="#EF4444" />
+                          </TouchableOpacity>
                         </View>
-                        <TouchableOpacity
-                          onPress={() => handleRemoveMedicine(item.id)}
-                          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                        >
-                          <Ionicons name="trash-outline" size={18} color="#EF4444" />
-                        </TouchableOpacity>
+                        <View style={styles.prescribedScheduleBadge}>
+                          <Ionicons name="time-outline" size={13} color="#071E42" />
+                          <Text style={styles.prescribedScheduleText}>
+                            {med.timingSummary}
+                          </Text>
+                        </View>
                       </View>
-                    ))}
-                  </View>
-                )}
-
-                {/* NAVIGATION BUTTONS */}
-                <View style={styles.navButtonsRow}>
-                  <TouchableOpacity
-                    style={styles.btnSecondary}
-                    onPress={() => setStep(1)}
-                    activeOpacity={0.8}
-                  >
-                    <Ionicons name="arrow-back" size={15} color="#475569" />
-                    <Text style={styles.btnSecondaryText}>Back</Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    style={styles.btnSkip}
-                    onPress={() => setStep(3)}
-                    activeOpacity={0.8}
-                  >
-                    <Text style={styles.btnSkipText}>Skip</Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    style={styles.btnPrimary}
-                    onPress={() => setStep(3)}
-                    activeOpacity={0.85}
-                  >
-                    <Text style={styles.btnPrimaryText}>Continue to Testing</Text>
-                    <Ionicons name="arrow-forward" size={16} color="#FFFFFF" />
-                  </TouchableOpacity>
+                    ))
+                  )}
                 </View>
               </View>
             )}
 
-            {/* ==================================================
-                STEP 3: TESTING
-            =================================================== */}
-            {step === 3 && (
-              <View style={styles.stepSection}>
-                <View style={styles.sectionHeaderRow}>
-                  <View style={styles.stepIconWrap}>
-                    <Ionicons name="flask-outline" size={18} color="#071E42" />
+            {/* ----------------------------------------------------
+                STEP 3: TESTS (Lab Investigations)
+                (tall search, highlighted select, test name, patient prep, lab instructions, add to test required, requirement lists)
+            ----------------------------------------------------- */}
+            {currentStep === 3 && (
+              <View style={styles.stepContentWrap}>
+                <View style={styles.sectionHeaderBanner}>
+                  <View style={styles.sectionIconWrap}>
+                    <Ionicons name="flask" size={18} color="#071E42" />
                   </View>
-                  <View>
-                    <Text style={styles.sectionHeaderTitle}>Step 3: Lab Tests & Diagnostics</Text>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.sectionHeaderTitle}>
+                      Tests & Lab Investigations
+                    </Text>
                     <Text style={styles.sectionHeaderSub}>
-                      Select required diagnostic tests and patient preparation instructions
+                      Order diagnostic tests with patient preparation & technician guidelines
                     </Text>
                   </View>
                 </View>
 
-                {/* Test Name with search & dropdown */}
-                <Text style={styles.inputLabel}>Test Name</Text>
+                {/* Search Tests with Tall Box & Highlighted Select Button */}
+                <Text style={styles.inputFieldLabel}>Search Tests</Text>
                 <View style={styles.searchDropdownWrap}>
-                  <View style={styles.searchInputBox}>
-                    <Ionicons name="search-outline" size={17} color="#071E42" />
+                  <View style={[styles.searchInputRow, styles.searchBoxTall]}>
+                    <Ionicons name="search" size={20} color="#071E42" />
                     <TextInput
-                      style={styles.searchInput}
-                      placeholder="Search or enter lab test (e.g. Complete Blood Count)"
+                      style={[styles.searchInputField, styles.searchInputFieldTall]}
+                      placeholder="Search diagnostic test (e.g. CBC, HbA1c, Lipid Profile)..."
                       placeholderTextColor="#94A3B8"
                       value={testSearch}
                       onChangeText={(t) => {
@@ -703,1021 +798,1284 @@ export default function FollowUpWizardModal({
                     />
                     {testSearch.length > 0 && (
                       <TouchableOpacity onPress={() => setTestSearch('')}>
-                        <Ionicons name="close-circle" size={16} color="#94A3B8" />
+                        <Ionicons name="close-circle" size={18} color="#94A3B8" />
                       </TouchableOpacity>
                     )}
                   </View>
 
-                  {/* Dropdown list */}
                   {isTestDropdownOpen && (
-                    <View style={styles.dropdownBox}>
-                      <ScrollView style={{ maxHeight: 150 }} nestedScrollEnabled>
+                    <View style={styles.dropdownListBox}>
+                      <ScrollView style={{ maxHeight: 180 }} nestedScrollEnabled>
                         {filteredTests.map((t) => (
-                          <TouchableOpacity
-                            key={t}
-                            style={styles.dropdownItem}
-                            onPress={() => {
-                              setTestSearch(t);
-                              setIsTestDropdownOpen(false);
-                            }}
-                          >
-                            <Ionicons name="flask" size={14} color="#071E42" />
-                            <Text style={styles.dropdownItemText}>{t}</Text>
-                          </TouchableOpacity>
+                          <View key={t} style={styles.dropdownItemRow}>
+                            <View style={styles.dropdownItemInfo}>
+                              <Ionicons name="flask" size={15} color="#071E42" />
+                              <Text style={styles.dropdownItemName}>{t}</Text>
+                            </View>
+                            <TouchableOpacity
+                              style={styles.dropdownHighlightSelectBtn}
+                              onPress={() => {
+                                setTestName(t);
+                                setTestSearch('');
+                                setIsTestDropdownOpen(false);
+                              }}
+                              activeOpacity={0.8}
+                            >
+                              <Text style={styles.dropdownHighlightSelectBtnText}>Select</Text>
+                            </TouchableOpacity>
+                          </View>
                         ))}
                       </ScrollView>
                     </View>
                   )}
                 </View>
 
-                {/* Notes & Patient Instructions */}
-                <Text style={styles.inputLabel}>Notes & Patient Instructions</Text>
+                {/* Test Name with typing field and add up buttons */}
+                <Text style={styles.inputFieldLabel}>Test Name</Text>
                 <TextInput
-                  style={[styles.textInput, { minHeight: 65, textAlignVertical: 'top' }]}
-                  placeholder="Instructions for patient prior to test..."
+                  style={styles.textInputBox}
+                  placeholder="Test name (e.g. Complete Blood Count)"
                   placeholderTextColor="#94A3B8"
-                  multiline
-                  numberOfLines={2}
-                  value={testInstructions}
-                  onChangeText={setTestInstructions}
+                  value={testName}
+                  onChangeText={setTestName}
                 />
-
-                {/* Adding Preset Buttons (Specifically Requested by User) */}
-                <Text style={[styles.inputLabel, { marginTop: 8 }]}>Quick-Add Instructions:</Text>
-                <View style={styles.presetButtonsWrap}>
-                  {PRESET_INSTRUCTIONS.map((preset) => {
-                    const isAdded = testInstructions.includes(preset);
-                    return (
-                      <TouchableOpacity
-                        key={preset}
+                <View style={styles.quickAddPillsRow}>
+                  {[
+                    'Complete Blood Count (CBC)',
+                    'Lipid Profile (Fasting)',
+                    'HbA1c',
+                    '12-Lead ECG',
+                    'Thyroid Profile (TSH)',
+                    'Urine Routine',
+                  ].map((t) => (
+                    <TouchableOpacity
+                      key={t}
+                      style={[
+                        styles.quickAddPill,
+                        testName === t && styles.quickAddPillActive,
+                      ]}
+                      onPress={() => setTestName(t)}
+                      activeOpacity={0.8}
+                    >
+                      <Ionicons
+                        name={testName === t ? 'checkmark-circle' : 'add-circle-outline'}
+                        size={13}
+                        color={testName === t ? '#FFFFFF' : '#071E42'}
+                      />
+                      <Text
                         style={[
-                          styles.presetChipBtn,
-                          isAdded && styles.presetChipBtnActive,
+                          styles.quickAddPillText,
+                          testName === t && styles.quickAddPillTextActive,
                         ]}
-                        onPress={() => handleToggleInstruction(preset)}
+                      >
+                        {t}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+
+                {/* Patient Preparation / Diet Requirement */}
+                <Text style={styles.inputFieldLabel}>Patient Preparation / Diet Requirement</Text>
+                <TextInput
+                  style={styles.textInputBox}
+                  placeholder="e.g. Fasting 10 hrs, drinking only water..."
+                  placeholderTextColor="#94A3B8"
+                  value={patientPrep}
+                  onChangeText={setPatientPrep}
+                />
+                <View style={styles.quickAddPillsRow}>
+                  {[
+                    'Fasting 10 hrs',
+                    'Drinking only water',
+                    'Normal diet',
+                    'No special preparation',
+                    'Overnight fasting (12 hrs)',
+                  ].map((p) => (
+                    <TouchableOpacity
+                      key={p}
+                      style={[
+                        styles.quickAddPill,
+                        patientPrep === p && styles.quickAddPillActive,
+                      ]}
+                      onPress={() => setPatientPrep(p)}
+                      activeOpacity={0.8}
+                    >
+                      <Ionicons
+                        name={patientPrep === p ? 'checkmark-circle' : 'add-circle-outline'}
+                        size={13}
+                        color={patientPrep === p ? '#FFFFFF' : '#071E42'}
+                      />
+                      <Text
+                        style={[
+                          styles.quickAddPillText,
+                          patientPrep === p && styles.quickAddPillTextActive,
+                        ]}
+                      >
+                        {p}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+
+                {/* Clinical Instructions for Lab Technician */}
+                <Text style={styles.inputFieldLabel}>Clinical Instructions for Lab Technician</Text>
+                <TextInput
+                  style={styles.textInputBox}
+                  placeholder="e.g. Routine analysis, urgent report required..."
+                  placeholderTextColor="#94A3B8"
+                  value={labInstructions}
+                  onChangeText={setLabInstructions}
+                />
+                <View style={styles.quickAddPillsRow}>
+                  {[
+                    'Routine analysis',
+                    'Urgent report required',
+                    'Resting baseline check',
+                    'Serum level check',
+                    'Send digital report',
+                  ].map((ins) => (
+                    <TouchableOpacity
+                      key={ins}
+                      style={[
+                        styles.quickAddPill,
+                        labInstructions === ins && styles.quickAddPillActive,
+                      ]}
+                      onPress={() => setLabInstructions(ins)}
+                      activeOpacity={0.8}
+                    >
+                      <Ionicons
+                        name={labInstructions === ins ? 'checkmark-circle' : 'add-circle-outline'}
+                        size={13}
+                        color={labInstructions === ins ? '#FFFFFF' : '#071E42'}
+                      />
+                      <Text
+                        style={[
+                          styles.quickAddPillText,
+                          labInstructions === ins && styles.quickAddPillTextActive,
+                        ]}
+                      >
+                        {ins}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+
+                {/* Add to Test Required Button */}
+                <TouchableOpacity
+                  style={styles.addToPrescriptionMainBtn}
+                  onPress={handleAddTest}
+                  activeOpacity={0.85}
+                >
+                  <Ionicons name="add-circle" size={19} color="#FFFFFF" />
+                  <Text style={styles.addToPrescriptionMainBtnText}>+ Add to Test Required</Text>
+                </TouchableOpacity>
+
+                {/* Test Requirement Lists */}
+                <View style={styles.addedListWrap}>
+                  <Text style={styles.addedListHeaderTitle}>
+                    Test Requirement Lists ({testsList.length})
+                  </Text>
+                  {testsList.length === 0 ? (
+                    <Text style={styles.emptyListHint}>No lab tests ordered yet.</Text>
+                  ) : (
+                    testsList.map((test) => (
+                      <View key={test.id} style={styles.prescribedItemCard}>
+                        <View style={styles.prescribedItemTop}>
+                          <View style={{ flex: 1 }}>
+                            <Text style={styles.prescribedItemName}>{test.name}</Text>
+                          </View>
+                          <TouchableOpacity
+                            style={styles.deleteNoteBtn}
+                            onPress={() => handleRemoveTest(test.id)}
+                          >
+                            <Ionicons name="trash-outline" size={16} color="#EF4444" />
+                          </TouchableOpacity>
+                        </View>
+                        <View style={styles.testDetailRow}>
+                          <Ionicons name="restaurant-outline" size={13} color="#D97706" />
+                          <Text style={styles.testDetailText}>
+                            Prep: {test.patientPrep}
+                          </Text>
+                        </View>
+                        <View style={styles.testDetailRow}>
+                          <Ionicons name="information-circle-outline" size={13} color="#00B894" />
+                          <Text style={styles.testDetailText}>
+                            Lab Note: {test.instructions}
+                          </Text>
+                        </View>
+                      </View>
+                    ))
+                  )}
+                </View>
+              </View>
+            )}
+
+            {/* ----------------------------------------------------
+                STEP 4: DATE SCHEDULE (DATE FIXING)
+                (follow-up required yes/no, mode, calendar date, time slot, and details review)
+            ----------------------------------------------------- */}
+            {currentStep === 4 && (
+              <View style={styles.stepContentWrap}>
+                <View style={styles.sectionHeaderBanner}>
+                  <View style={styles.sectionIconWrap}>
+                    <Ionicons name="calendar" size={18} color="#071E42" />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.sectionHeaderTitle}>
+                      Schedule & Consultation Summary
+                    </Text>
+                    <Text style={styles.sectionHeaderSub}>
+                      Set follow-up requirements and review full consultation plan
+                    </Text>
+                  </View>
+                </View>
+
+                {/* Follow-up Required: Yes or No */}
+                <Text style={styles.inputFieldLabel}>Follow-up Required?</Text>
+                <View style={styles.yesNoToggleRow}>
+                  <TouchableOpacity
+                    style={[
+                      styles.yesNoToggleBtn,
+                      followUpRequired === 'yes' && styles.yesToggleBtnActive,
+                    ]}
+                    onPress={() => setFollowUpRequired('yes')}
+                    activeOpacity={0.8}
+                  >
+                    <Ionicons
+                      name={followUpRequired === 'yes' ? 'checkmark-circle' : 'checkmark-circle-outline'}
+                      size={18}
+                      color={followUpRequired === 'yes' ? '#FFFFFF' : '#071E42'}
+                    />
+                    <Text
+                      style={[
+                        styles.yesNoToggleText,
+                        followUpRequired === 'yes' && styles.yesNoToggleTextActive,
+                      ]}
+                    >
+                      Yes, Required
+                    </Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[
+                      styles.yesNoToggleBtn,
+                      followUpRequired === 'no' && styles.noToggleBtnActive,
+                    ]}
+                    onPress={() => setFollowUpRequired('no')}
+                    activeOpacity={0.8}
+                  >
+                    <Ionicons
+                      name={followUpRequired === 'no' ? 'close-circle' : 'close-circle-outline'}
+                      size={18}
+                      color={followUpRequired === 'no' ? '#FFFFFF' : '#64748B'}
+                    />
+                    <Text
+                      style={[
+                        styles.yesNoToggleText,
+                        followUpRequired === 'no' && styles.yesNoToggleTextActive,
+                      ]}
+                    >
+                      No, Not Required
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+
+                {/* IF YES: Show Follow-up Mode & Calendar & Time Slot */}
+                {followUpRequired === 'yes' ? (
+                  <>
+                    {/* Follow-up / Video consultation toggle */}
+                    <Text style={styles.inputFieldLabel}>Follow-up Consultation Mode</Text>
+                    <View style={styles.modeToggleRow}>
+                      <TouchableOpacity
+                        style={[
+                          styles.modeToggleBtn,
+                          consultMode === 'In-Person' && styles.modeToggleBtnActive,
+                        ]}
+                        onPress={() => setConsultMode('In-Person')}
                         activeOpacity={0.8}
                       >
                         <Ionicons
-                          name={isAdded ? 'checkmark-circle' : 'add-circle-outline'}
-                          size={15}
-                          color={isAdded ? '#FFFFFF' : '#071E42'}
+                          name="business"
+                          size={16}
+                          color={consultMode === 'In-Person' ? '#FFFFFF' : '#071E42'}
                         />
                         <Text
                           style={[
-                            styles.presetChipText,
-                            isAdded && styles.presetChipTextActive,
+                            styles.modeToggleText,
+                            consultMode === 'In-Person' && styles.modeToggleTextActive,
                           ]}
                         >
-                          {preset}
+                          In-Person Follow-up
+                        </Text>
+                      </TouchableOpacity>
+
+                      <TouchableOpacity
+                        style={[
+                          styles.modeToggleBtn,
+                          consultMode === 'Video' && styles.modeToggleBtnActive,
+                        ]}
+                        onPress={() => setConsultMode('Video')}
+                        activeOpacity={0.8}
+                      >
+                        <Ionicons
+                          name="videocam"
+                          size={16}
+                          color={consultMode === 'Video' ? '#FFFFFF' : '#071E42'}
+                        />
+                        <Text
+                          style={[
+                            styles.modeToggleText,
+                            consultMode === 'Video' && styles.modeToggleTextActive,
+                          ]}
+                        >
+                          Video Consultation
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
+
+                    {/* Date Schedule Button (Clicks pop up the Calendar) */}
+                    <Text style={styles.inputFieldLabel}>Target Follow-up Date</Text>
+                    <TouchableOpacity
+                      style={styles.calendarTriggerBtn}
+                      onPress={() => setIsCalendarOpen(true)}
+                      activeOpacity={0.85}
+                    >
+                      <View style={styles.calTriggerLeft}>
+                        <View style={styles.calIconBadge}>
+                          <Ionicons name="calendar" size={18} color="#071E42" />
+                        </View>
+                        <View>
+                          <Text style={styles.calTriggerTitle}>{selectedDate}</Text>
+                          <Text style={styles.calTriggerSub}>
+                            Tap calendar button to change date
+                          </Text>
+                        </View>
+                      </View>
+                      <View style={styles.calTriggerPill}>
+                        <Ionicons name="calendar-outline" size={14} color="#071E42" />
+                        <Text style={styles.calTriggerPillText}>Open Calendar</Text>
+                      </View>
+                    </TouchableOpacity>
+
+                    {/* Time Slot Chips */}
+                    <Text style={styles.inputFieldLabel}>Preferred Time Slot</Text>
+                    <View style={styles.timeSlotsRow}>
+                      {['10:00 AM', '11:30 AM', '02:00 PM', '04:30 PM', '06:00 PM'].map((s) => (
+                        <TouchableOpacity
+                          key={s}
+                          style={[
+                            styles.timeSlotPill,
+                            selectedSlot === s && styles.timeSlotPillActive,
+                          ]}
+                          onPress={() => setSelectedSlot(s)}
+                          activeOpacity={0.8}
+                        >
+                          <Text
+                            style={[
+                              styles.timeSlotPillText,
+                              selectedSlot === s && styles.timeSlotPillTextActive,
+                            ]}
+                          >
+                            {s}
+                          </Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  </>
+                ) : (
+                  <View style={styles.noFollowUpNoticeBox}>
+                    <Ionicons name="information-circle-outline" size={18} color="#64748B" />
+                    <Text style={styles.noFollowUpNoticeText}>
+                      No follow-up visit scheduled. Patient will take medications and complete test requirements as prescribed.
+                    </Text>
+                  </View>
+                )}
+
+                {/* DETAILS DOWN OF:
+                    - Consultation notes
+                    - Prescribe medicine
+                    - Test requirements
+                    - Follow-up --> Date fixed
+                */}
+                <Text style={[styles.inputFieldLabel, { marginTop: 16 }]}>
+                  Consultation Details Review
+                </Text>
+                <View style={styles.detailsReviewMasterCard}>
+                  {/* 1. Consultation Notes */}
+                  <View style={styles.detailsReviewSection}>
+                    <View style={styles.detailsReviewSectionHeader}>
+                      <Ionicons name="document-text-outline" size={16} color="#071E42" />
+                      <Text style={styles.detailsReviewSectionTitle}>Consultation Notes</Text>
+                    </View>
+                    <Text style={styles.detailsReviewNotesText} numberOfLines={4}>
+                      {consultNotes ? consultNotes : 'No consultation notes entered.'}
+                    </Text>
+                  </View>
+
+                  <View style={styles.detailsReviewDivider} />
+
+                  {/* 2. Prescribed Medicine */}
+                  <View style={styles.detailsReviewSection}>
+                    <View style={styles.detailsReviewSectionHeader}>
+                      <Ionicons name="medkit-outline" size={16} color="#071E42" />
+                      <Text style={styles.detailsReviewSectionTitle}>
+                        Prescribed Medicine ({prescribedList.length})
+                      </Text>
+                    </View>
+                    {prescribedList.length === 0 ? (
+                      <Text style={styles.detailsReviewEmptyText}>No medicine prescribed.</Text>
+                    ) : (
+                      prescribedList.map((m, idx) => (
+                        <View key={m.id || idx} style={styles.detailsReviewItemRow}>
+                          <View style={styles.detailsReviewBullet} />
+                          <View style={{ flex: 1 }}>
+                            <Text style={styles.detailsReviewItemName}>{m.name}</Text>
+                            <Text style={styles.detailsReviewItemSub}>
+                              {m.dosage} · {m.frequency} · {m.duration} ({m.timingSummary})
+                            </Text>
+                          </View>
+                        </View>
+                      ))
+                    )}
+                  </View>
+
+                  <View style={styles.detailsReviewDivider} />
+
+                  {/* 3. Test Requirements */}
+                  <View style={styles.detailsReviewSection}>
+                    <View style={styles.detailsReviewSectionHeader}>
+                      <Ionicons name="flask-outline" size={16} color="#071E42" />
+                      <Text style={styles.detailsReviewSectionTitle}>
+                        Test Requirements ({testsList.length})
+                      </Text>
+                    </View>
+                    {testsList.length === 0 ? (
+                      <Text style={styles.detailsReviewEmptyText}>No test requirements added.</Text>
+                    ) : (
+                      testsList.map((t, idx) => (
+                        <View key={t.id || idx} style={styles.detailsReviewItemRow}>
+                          <View style={[styles.detailsReviewBullet, { backgroundColor: '#00B894' }]} />
+                          <View style={{ flex: 1 }}>
+                            <Text style={styles.detailsReviewItemName}>{t.name}</Text>
+                            <Text style={styles.detailsReviewItemSub}>
+                              Prep: {t.patientPrep} · Lab: {t.instructions}
+                            </Text>
+                          </View>
+                        </View>
+                      ))
+                    )}
+                  </View>
+
+                  <View style={styles.detailsReviewDivider} />
+
+                  {/* 4. Follow-up --> Date Fixed */}
+                  <View style={styles.detailsReviewSection}>
+                    <View style={styles.detailsReviewSectionHeader}>
+                      <Ionicons name="calendar-outline" size={16} color="#071E42" />
+                      <Text style={styles.detailsReviewSectionTitle}>Follow-up Target</Text>
+                    </View>
+                    <View style={styles.detailsReviewFollowUpBadge}>
+                      <Ionicons
+                        name={followUpRequired === 'yes' ? 'time' : 'close-circle'}
+                        size={16}
+                        color={followUpRequired === 'yes' ? '#00B894' : '#64748B'}
+                      />
+                      <Text style={styles.detailsReviewFollowUpText}>
+                        {followUpRequired === 'yes'
+                          ? `Date Fixed: ${selectedDate} at ${selectedSlot} (${consultMode})`
+                          : 'Follow-up: Not required (SOS / As needed)'}
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+              </View>
+            )}
+          </ScrollView>
+
+          {/* ======================================================
+              STATIC BUTTONS DOWN (FIXED AT BOTTOM OF BOTTOM SHEET)
+              (continue button, skip button, and back button)
+          ======================================================= */}
+          <View style={styles.staticBottomBar}>
+            {/* BACK / CANCEL BUTTON */}
+            <TouchableOpacity
+              style={styles.staticBackBtn}
+              onPress={handleBack}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="arrow-back" size={16} color="#475569" />
+              <Text style={styles.staticBackBtnText}>
+                {currentStep === 1 ? 'Cancel' : 'Back'}
+              </Text>
+            </TouchableOpacity>
+
+            {/* SKIP BUTTON (for steps 1, 2, 3) */}
+            {currentStep < 4 && (
+              <TouchableOpacity
+                style={styles.staticSkipBtn}
+                onPress={handleSkip}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.staticSkipBtnText}>Skip</Text>
+              </TouchableOpacity>
+            )}
+
+            {/* CONTINUE / SUBMIT BUTTON */}
+            <TouchableOpacity
+              style={[styles.staticPrimaryBtn, currentStep === 4 && { flex: 2 }]}
+              onPress={handleNext}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.staticPrimaryBtnText}>
+                {currentStep === 1
+                  ? 'Continue to Prescribe'
+                  : currentStep === 2
+                  ? 'Continue to Tests'
+                  : currentStep === 3
+                  ? 'Continue to Schedule'
+                  : 'Submit'}
+              </Text>
+              <Ionicons
+                name={currentStep === 4 ? 'checkmark-circle' : 'arrow-forward'}
+                size={16}
+                color="#FFFFFF"
+              />
+            </TouchableOpacity>
+          </View>
+
+          {/* ======================================================
+              SUB-MODAL 1: DAILY TABLET SCHEDULE & FOOD TIMING
+              (MATCHING REFERENCE IMAGE)
+          ======================================================= */}
+          <Modal
+            visible={isTimingModalOpen}
+            transparent
+            animationType="fade"
+            onRequestClose={() => setIsTimingModalOpen(false)}
+          >
+            <View style={styles.subModalOverlay}>
+              <View style={styles.timingCardModal}>
+                <View style={styles.timingCardHeader}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                    <Ionicons name="time-outline" size={20} color="#071E42" />
+                    <Text style={styles.timingCardHeaderTitle}>
+                      Daily Tablet Schedule & Food Timing
+                    </Text>
+                  </View>
+                  <TouchableOpacity
+                    onPress={() => setIsTimingModalOpen(false)}
+                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                  >
+                    <Ionicons name="close" size={20} color="#64748B" />
+                  </TouchableOpacity>
+                </View>
+
+                <ScrollView showsVerticalScrollIndicator={false}>
+                  {/* MORNING */}
+                  <View style={styles.timingBlock}>
+                    <View style={styles.timingBlockHeader}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                        <Ionicons name="sunny-outline" size={18} color="#071E42" />
+                        <Text style={styles.timingBlockTitle}>Morning</Text>
+                      </View>
+                      <View style={styles.timingStatusBadge}>
+                        <Text style={styles.timingStatusBadgeText}>
+                          {morningTiming.tabletOption === 'OFF'
+                            ? 'Tablet OFF'
+                            : `Tablet ON · ${morningTiming.foodTiming === 'before' ? 'Before Food' : 'After Food'}`}
+                        </Text>
+                      </View>
+                    </View>
+
+                    <View style={styles.timingControlRow}>
+                      <Text style={styles.timingControlLabel}>Tablet Option:</Text>
+                      <View style={styles.toggleButtonsGroup}>
+                        <TouchableOpacity
+                          style={[
+                            styles.toggleBtn,
+                            morningTiming.tabletOption === 'ON' && styles.toggleBtnActiveNavy,
+                          ]}
+                          onPress={() =>
+                            setMorningTiming((prev) => ({ ...prev, tabletOption: 'ON' }))
+                          }
+                        >
+                          <Ionicons
+                            name="checkmark-circle"
+                            size={14}
+                            color={morningTiming.tabletOption === 'ON' ? '#FFFFFF' : '#64748B'}
+                          />
+                          <Text
+                            style={[
+                              styles.toggleBtnText,
+                              morningTiming.tabletOption === 'ON' && styles.toggleBtnTextActive,
+                            ]}
+                          >
+                            ON
+                          </Text>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity
+                          style={[
+                            styles.toggleBtn,
+                            morningTiming.tabletOption === 'OFF' && styles.toggleBtnActiveNavy,
+                          ]}
+                          onPress={() =>
+                            setMorningTiming((prev) => ({ ...prev, tabletOption: 'OFF' }))
+                          }
+                        >
+                          <Ionicons
+                            name="close-circle"
+                            size={14}
+                            color={morningTiming.tabletOption === 'OFF' ? '#FFFFFF' : '#64748B'}
+                          />
+                          <Text
+                            style={[
+                              styles.toggleBtnText,
+                              morningTiming.tabletOption === 'OFF' && styles.toggleBtnTextActive,
+                            ]}
+                          >
+                            OFF
+                          </Text>
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+
+                    {morningTiming.tabletOption === 'ON' && (
+                      <View style={styles.timingControlRow}>
+                        <Text style={styles.timingControlLabel}>Food Timing:</Text>
+                        <View style={styles.toggleButtonsGroup}>
+                          <TouchableOpacity
+                            style={[
+                              styles.toggleBtn,
+                              morningTiming.foodTiming === 'before' && styles.toggleBtnActiveNavy,
+                            ]}
+                            onPress={() =>
+                              setMorningTiming((prev) => ({ ...prev, foodTiming: 'before' }))
+                            }
+                          >
+                            <Text
+                              style={[
+                                styles.toggleBtnText,
+                                morningTiming.foodTiming === 'before' && styles.toggleBtnTextActive,
+                              ]}
+                            >
+                              Before Food
+                            </Text>
+                          </TouchableOpacity>
+
+                          <TouchableOpacity
+                            style={[
+                              styles.toggleBtn,
+                              morningTiming.foodTiming === 'after' && styles.toggleBtnActiveNavy,
+                            ]}
+                            onPress={() =>
+                              setMorningTiming((prev) => ({ ...prev, foodTiming: 'after' }))
+                            }
+                          >
+                            <Text
+                              style={[
+                                styles.toggleBtnText,
+                                morningTiming.foodTiming === 'after' && styles.toggleBtnTextActive,
+                              ]}
+                            >
+                              After Food
+                            </Text>
+                          </TouchableOpacity>
+                        </View>
+                      </View>
+                    )}
+                  </View>
+
+                  {/* AFTERNOON */}
+                  <View style={styles.timingBlock}>
+                    <View style={styles.timingBlockHeader}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                        <Ionicons name="partly-sunny-outline" size={18} color="#071E42" />
+                        <Text style={styles.timingBlockTitle}>Afternoon</Text>
+                      </View>
+                      <View style={styles.timingStatusBadge}>
+                        <Text style={styles.timingStatusBadgeText}>
+                          {afternoonTiming.tabletOption === 'OFF'
+                            ? 'Tablet OFF'
+                            : `Tablet ON · ${afternoonTiming.foodTiming === 'before' ? 'Before Food' : 'After Food'}`}
+                        </Text>
+                      </View>
+                    </View>
+
+                    <View style={styles.timingControlRow}>
+                      <Text style={styles.timingControlLabel}>Tablet Option:</Text>
+                      <View style={styles.toggleButtonsGroup}>
+                        <TouchableOpacity
+                          style={[
+                            styles.toggleBtn,
+                            afternoonTiming.tabletOption === 'ON' && styles.toggleBtnActiveNavy,
+                          ]}
+                          onPress={() =>
+                            setAfternoonTiming((prev) => ({ ...prev, tabletOption: 'ON' }))
+                          }
+                        >
+                          <Ionicons
+                            name="checkmark-circle"
+                            size={14}
+                            color={afternoonTiming.tabletOption === 'ON' ? '#FFFFFF' : '#64748B'}
+                          />
+                          <Text
+                            style={[
+                              styles.toggleBtnText,
+                              afternoonTiming.tabletOption === 'ON' && styles.toggleBtnTextActive,
+                            ]}
+                          >
+                            ON
+                          </Text>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity
+                          style={[
+                            styles.toggleBtn,
+                            afternoonTiming.tabletOption === 'OFF' && styles.toggleBtnActiveNavy,
+                          ]}
+                          onPress={() =>
+                            setAfternoonTiming((prev) => ({ ...prev, tabletOption: 'OFF' }))
+                          }
+                        >
+                          <Ionicons
+                            name="close-circle"
+                            size={14}
+                            color={afternoonTiming.tabletOption === 'OFF' ? '#FFFFFF' : '#64748B'}
+                          />
+                          <Text
+                            style={[
+                              styles.toggleBtnText,
+                              afternoonTiming.tabletOption === 'OFF' && styles.toggleBtnTextActive,
+                            ]}
+                          >
+                            OFF
+                          </Text>
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+
+                    {afternoonTiming.tabletOption === 'ON' && (
+                      <View style={styles.timingControlRow}>
+                        <Text style={styles.timingControlLabel}>Food Timing:</Text>
+                        <View style={styles.toggleButtonsGroup}>
+                          <TouchableOpacity
+                            style={[
+                              styles.toggleBtn,
+                              afternoonTiming.foodTiming === 'before' && styles.toggleBtnActiveNavy,
+                            ]}
+                            onPress={() =>
+                              setAfternoonTiming((prev) => ({ ...prev, foodTiming: 'before' }))
+                            }
+                          >
+                            <Text
+                              style={[
+                                styles.toggleBtnText,
+                                afternoonTiming.foodTiming === 'before' && styles.toggleBtnTextActive,
+                              ]}
+                            >
+                              Before Food
+                            </Text>
+                          </TouchableOpacity>
+
+                          <TouchableOpacity
+                            style={[
+                              styles.toggleBtn,
+                              afternoonTiming.foodTiming === 'after' && styles.toggleBtnActiveNavy,
+                            ]}
+                            onPress={() =>
+                              setAfternoonTiming((prev) => ({ ...prev, foodTiming: 'after' }))
+                            }
+                          >
+                            <Text
+                              style={[
+                                styles.toggleBtnText,
+                                afternoonTiming.foodTiming === 'after' && styles.toggleBtnTextActive,
+                              ]}
+                            >
+                              After Food
+                            </Text>
+                          </TouchableOpacity>
+                        </View>
+                      </View>
+                    )}
+                  </View>
+
+                  {/* NIGHT */}
+                  <View style={styles.timingBlock}>
+                    <View style={styles.timingBlockHeader}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                        <Ionicons name="moon-outline" size={18} color="#071E42" />
+                        <Text style={styles.timingBlockTitle}>Night</Text>
+                      </View>
+                      <View style={styles.timingStatusBadge}>
+                        <Text style={styles.timingStatusBadgeText}>
+                          {nightTiming.tabletOption === 'OFF'
+                            ? 'Tablet OFF'
+                            : `Tablet ON · ${nightTiming.foodTiming === 'before' ? 'Before Food' : 'After Food'}`}
+                        </Text>
+                      </View>
+                    </View>
+
+                    <View style={styles.timingControlRow}>
+                      <Text style={styles.timingControlLabel}>Tablet Option:</Text>
+                      <View style={styles.toggleButtonsGroup}>
+                        <TouchableOpacity
+                          style={[
+                            styles.toggleBtn,
+                            nightTiming.tabletOption === 'ON' && styles.toggleBtnActiveNavy,
+                          ]}
+                          onPress={() =>
+                            setNightTiming((prev) => ({ ...prev, tabletOption: 'ON' }))
+                          }
+                        >
+                          <Ionicons
+                            name="checkmark-circle"
+                            size={14}
+                            color={nightTiming.tabletOption === 'ON' ? '#FFFFFF' : '#64748B'}
+                          />
+                          <Text
+                            style={[
+                              styles.toggleBtnText,
+                              nightTiming.tabletOption === 'ON' && styles.toggleBtnTextActive,
+                            ]}
+                          >
+                            ON
+                          </Text>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity
+                          style={[
+                            styles.toggleBtn,
+                            nightTiming.tabletOption === 'OFF' && styles.toggleBtnActiveNavy,
+                          ]}
+                          onPress={() =>
+                            setNightTiming((prev) => ({ ...prev, tabletOption: 'OFF' }))
+                          }
+                        >
+                          <Ionicons
+                            name="close-circle"
+                            size={14}
+                            color={nightTiming.tabletOption === 'OFF' ? '#FFFFFF' : '#64748B'}
+                          />
+                          <Text
+                            style={[
+                              styles.toggleBtnText,
+                              nightTiming.tabletOption === 'OFF' && styles.toggleBtnTextActive,
+                            ]}
+                          >
+                            OFF
+                          </Text>
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+
+                    {nightTiming.tabletOption === 'ON' && (
+                      <View style={styles.timingControlRow}>
+                        <Text style={styles.timingControlLabel}>Food Timing:</Text>
+                        <View style={styles.toggleButtonsGroup}>
+                          <TouchableOpacity
+                            style={[
+                              styles.toggleBtn,
+                              nightTiming.foodTiming === 'before' && styles.toggleBtnActiveNavy,
+                            ]}
+                            onPress={() =>
+                              setNightTiming((prev) => ({ ...prev, foodTiming: 'before' }))
+                            }
+                          >
+                            <Text
+                              style={[
+                                styles.toggleBtnText,
+                                nightTiming.foodTiming === 'before' && styles.toggleBtnTextActive,
+                              ]}
+                            >
+                              Before Food
+                            </Text>
+                          </TouchableOpacity>
+
+                          <TouchableOpacity
+                            style={[
+                              styles.toggleBtn,
+                              nightTiming.foodTiming === 'after' && styles.toggleBtnActiveNavy,
+                            ]}
+                            onPress={() =>
+                              setNightTiming((prev) => ({ ...prev, foodTiming: 'after' }))
+                            }
+                          >
+                            <Text
+                              style={[
+                                styles.toggleBtnText,
+                                nightTiming.foodTiming === 'after' && styles.toggleBtnTextActive,
+                              ]}
+                            >
+                              After Food
+                            </Text>
+                          </TouchableOpacity>
+                        </View>
+                      </View>
+                    )}
+                  </View>
+
+                  <TouchableOpacity
+                    style={styles.timingSaveBtn}
+                    onPress={() => setIsTimingModalOpen(false)}
+                    activeOpacity={0.85}
+                  >
+                    <Ionicons name="checkmark-done" size={17} color="#FFFFFF" />
+                    <Text style={styles.timingSaveBtnText}>Save Schedule & Food Timing</Text>
+                  </TouchableOpacity>
+                </ScrollView>
+              </View>
+            </View>
+          </Modal>
+
+          {/* ======================================================
+              SUB-MODAL 2: CALENDAR DATE PICKER
+          ======================================================= */}
+          <Modal
+            visible={isCalendarOpen}
+            transparent
+            animationType="fade"
+            onRequestClose={() => setIsCalendarOpen(false)}
+          >
+            <View style={styles.subModalOverlay}>
+              <View style={styles.calendarCardModal}>
+                <View style={styles.calendarCardHeader}>
+                  <Text style={styles.calendarCardHeaderTitle}>
+                    {MONTH_NAMES[calMonth]} {calYear}
+                  </Text>
+                  <View style={{ flexDirection: 'row', gap: 8 }}>
+                    <TouchableOpacity
+                      style={styles.calNavBtn}
+                      onPress={() => {
+                        if (calMonth === 0) {
+                          setCalMonth(11);
+                          setCalYear((y) => y - 1);
+                        } else {
+                          setCalMonth((m) => m - 1);
+                        }
+                      }}
+                    >
+                      <Ionicons name="chevron-back" size={18} color="#071E42" />
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={styles.calNavBtn}
+                      onPress={() => {
+                        if (calMonth === 11) {
+                          setCalMonth(0);
+                          setCalYear((y) => y + 1);
+                        } else {
+                          setCalMonth((m) => m + 1);
+                        }
+                      }}
+                    >
+                      <Ionicons name="chevron-forward" size={18} color="#071E42" />
+                    </TouchableOpacity>
+                  </View>
+                </View>
+
+                {/* Weekday headers */}
+                <View style={styles.calWeekHeaderRow}>
+                  {WEEK_DAYS.map((w) => (
+                    <Text key={w} style={styles.calWeekDayText}>
+                      {w}
+                    </Text>
+                  ))}
+                </View>
+
+                {/* Days Grid */}
+                <View style={styles.calDaysGrid}>
+                  {calendarDays.map((d, index) => {
+                    if (d === null) {
+                      return <View key={`blank-${index}`} style={styles.calDayCell} />;
+                    }
+                    const isSelected = calDay === d;
+                    return (
+                      <TouchableOpacity
+                        key={`day-${d}`}
+                        style={[
+                          styles.calDayCell,
+                          isSelected && styles.calDayCellSelected,
+                        ]}
+                        onPress={() => handleSelectDay(d)}
+                        activeOpacity={0.7}
+                      >
+                        <Text
+                          style={[
+                            styles.calDayText,
+                            isSelected && styles.calDayTextSelected,
+                          ]}
+                        >
+                          {d}
                         </Text>
                       </TouchableOpacity>
                     );
                   })}
                 </View>
 
-                {/* Add Test Button */}
-                <TouchableOpacity
-                  style={styles.addMedicineBtn}
-                  onPress={handleAddTest}
-                  activeOpacity={0.85}
-                >
-                  <Ionicons name="add-circle" size={18} color="#FFFFFF" />
-                  <Text style={styles.addMedicineBtnText}>Add Test to Order</Text>
-                </TouchableOpacity>
-
-                {/* Added Tests List */}
-                {testsList.length > 0 && (
-                  <View style={styles.prescribedListWrap}>
-                    <Text style={styles.prescribedListHeader}>
-                      Requested Lab Tests ({testsList.length})
-                    </Text>
-                    {testsList.map((item, idx) => (
-                      <View key={item.id} style={styles.prescribedCard}>
-                        <View style={{ flex: 1 }}>
-                          <Text style={styles.prescribedName}>
-                            {idx + 1}. {item.name}
-                          </Text>
-                          {!!item.instructions && (
-                            <Text style={styles.prescribedInst}>
-                              Instructions: {item.instructions}
-                            </Text>
-                          )}
-                        </View>
-                        <TouchableOpacity
-                          onPress={() => handleRemoveTest(item.id)}
-                          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                        >
-                          <Ionicons name="trash-outline" size={18} color="#EF4444" />
-                        </TouchableOpacity>
-                      </View>
-                    ))}
-                  </View>
-                )}
-
-                {/* NAVIGATION BUTTONS */}
-                <View style={styles.navButtonsRow}>
-                  <TouchableOpacity
-                    style={styles.btnSecondary}
-                    onPress={() => setStep(2)}
-                    activeOpacity={0.8}
-                  >
-                    <Ionicons name="arrow-back" size={15} color="#475569" />
-                    <Text style={styles.btnSecondaryText}>Back</Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    style={styles.btnSkip}
-                    onPress={() => setStep(4)}
-                    activeOpacity={0.8}
-                  >
-                    <Text style={styles.btnSkipText}>Skip</Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    style={styles.btnPrimary}
-                    onPress={() => setStep(4)}
-                    activeOpacity={0.85}
-                  >
-                    <Text style={styles.btnPrimaryText}>Continue to Schedule</Text>
-                    <Ionicons name="arrow-forward" size={16} color="#FFFFFF" />
-                  </TouchableOpacity>
-                </View>
-              </View>
-            )}
-
-            {/* ==================================================
-                STEP 4: DATE SCHEDULE & SUBMIT
-            =================================================== */}
-            {step === 4 && (
-              <View style={styles.stepSection}>
-                <View style={styles.sectionHeaderRow}>
-                  <View style={styles.stepIconWrap}>
-                    <Ionicons name="calendar-outline" size={18} color="#071E42" />
-                  </View>
-                  <View>
-                    <Text style={styles.sectionHeaderTitle}>Step 4: Schedule Follow-up Date</Text>
-                    <Text style={styles.sectionHeaderSub}>
-                      Set follow-up appointment date, mode and time slot
-                    </Text>
-                  </View>
-                </View>
-
-                {/* Consultation Mode */}
-                <Text style={styles.inputLabel}>Consultation Mode</Text>
-                <View style={styles.modeToggleRow}>
-                  <TouchableOpacity
-                    style={[
-                      styles.modeToggleBtn,
-                      consultMode === 'In-Person' && styles.modeToggleBtnActive,
-                    ]}
-                    onPress={() => setConsultMode('In-Person')}
-                    activeOpacity={0.8}
-                  >
-                    <Ionicons
-                      name="business"
-                      size={18}
-                      color={consultMode === 'In-Person' ? '#FFFFFF' : '#071E42'}
-                    />
-                    <Text
-                      style={[
-                        styles.modeToggleText,
-                        consultMode === 'In-Person' && styles.modeToggleTextActive,
-                      ]}
-                    >
-                      In-Person Clinic Visit
-                    </Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    style={[
-                      styles.modeToggleBtn,
-                      consultMode === 'Video' && styles.modeToggleBtnActive,
-                    ]}
-                    onPress={() => setConsultMode('Video')}
-                    activeOpacity={0.8}
-                  >
-                    <Ionicons
-                      name="videocam"
-                      size={18}
-                      color={consultMode === 'Video' ? '#FFFFFF' : '#071E42'}
-                    />
-                    <Text
-                      style={[
-                        styles.modeToggleText,
-                        consultMode === 'Video' && styles.modeToggleTextActive,
-                      ]}
-                    >
-                      Video Consultation
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-
-                {/* Follow-up Date Selector Button (Clicks to open Calendar) */}
-                <Text style={styles.inputLabel}>Follow-up Appointment Date</Text>
-                <TouchableOpacity
-                  style={styles.datePickerBtn}
-                  onPress={() => setIsCalendarOpen(true)}
-                  activeOpacity={0.85}
-                >
-                  <View style={styles.datePickerLeft}>
-                    <View style={styles.dateIconWrap}>
-                      <Ionicons name="calendar" size={19} color="#071E42" />
-                    </View>
-                    <View>
-                      <Text style={styles.datePickerTitle}>{selectedDate}</Text>
-                      <Text style={styles.datePickerSub}>Click to open calendar picker</Text>
-                    </View>
-                  </View>
-                  <View style={styles.dateChangeBadge}>
-                    <Text style={styles.dateChangeText}>Change</Text>
-                    <Ionicons name="chevron-forward" size={14} color="#071E42" />
-                  </View>
-                </TouchableOpacity>
-
-                {/* Preferred Shift / Time Slot */}
-                <Text style={styles.inputLabel}>Time Slot</Text>
-                <View style={styles.durationChipsRow}>
-                  {['10:00 AM', '11:30 AM', '02:30 PM', '04:30 PM', '06:00 PM'].map((slot) => (
+                {/* Quick Selection Chips */}
+                <View style={styles.calQuickSelectRow}>
+                  {[
+                    { label: 'In 3 Days', days: 3 },
+                    { label: 'In 1 Week', days: 7 },
+                    { label: 'In 2 Weeks', days: 14 },
+                  ].map((q) => (
                     <TouchableOpacity
-                      key={slot}
-                      style={[
-                        styles.durationChip,
-                        timeShift === slot && styles.durationChipActive,
-                      ]}
-                      onPress={() => setTimeShift(slot)}
-                      activeOpacity={0.8}
+                      key={q.label}
+                      style={styles.calQuickSelectChip}
+                      onPress={() => {
+                        const target = new Date(calYear, calMonth, calDay + q.days);
+                        setCalYear(target.getFullYear());
+                        setCalMonth(target.getMonth());
+                        setCalDay(target.getDate());
+                        setIsCalendarOpen(false);
+                      }}
                     >
-                      <Text
-                        style={[
-                          styles.durationChipText,
-                          timeShift === slot && styles.durationChipTextActive,
-                        ]}
-                      >
-                        {slot}
-                      </Text>
+                      <Text style={styles.calQuickSelectText}>{q.label}</Text>
                     </TouchableOpacity>
                   ))}
                 </View>
-
-                {/* Summary Card Before Submit */}
-                <View style={styles.summaryCard}>
-                  <Text style={styles.summaryCardTitle}>Follow-up Plan Summary</Text>
-                  <View style={styles.summaryRow}>
-                    <Text style={styles.summaryLabel}>Patient:</Text>
-                    <Text style={styles.summaryVal}>{patient?.name || 'Patient'}</Text>
-                  </View>
-                  <View style={styles.summaryRow}>
-                    <Text style={styles.summaryLabel}>Diagnosis:</Text>
-                    <Text style={styles.summaryVal}>{diagnosis || 'Follow-up Consultation'}</Text>
-                  </View>
-                  <View style={styles.summaryRow}>
-                    <Text style={styles.summaryLabel}>Prescriptions:</Text>
-                    <Text style={styles.summaryVal}>
-                      {prescribedList.length > 0 ? `${prescribedList.length} medicine(s)` : 'None'}
-                    </Text>
-                  </View>
-                  <View style={styles.summaryRow}>
-                    <Text style={styles.summaryLabel}>Lab Tests:</Text>
-                    <Text style={styles.summaryVal}>
-                      {testsList.length > 0 ? `${testsList.length} test(s)` : 'None'}
-                    </Text>
-                  </View>
-                  <View style={styles.summaryRow}>
-                    <Text style={styles.summaryLabel}>Scheduled Date:</Text>
-                    <Text style={[styles.summaryVal, { color: '#071E42', fontWeight: '800' }]}>
-                      {selectedDate} ({consultMode}) · {timeShift}
-                    </Text>
-                  </View>
-                </View>
-
-                {/* NAVIGATION & SUBMIT BUTTONS */}
-                <View style={styles.navButtonsRow}>
-                  <TouchableOpacity
-                    style={styles.btnSecondary}
-                    onPress={() => setStep(3)}
-                    activeOpacity={0.8}
-                  >
-                    <Ionicons name="arrow-back" size={15} color="#475569" />
-                    <Text style={styles.btnSecondaryText}>Back</Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    style={[styles.btnPrimary, { flex: 2 }]}
-                    onPress={handleSubmitPlan}
-                    activeOpacity={0.85}
-                  >
-                    <Ionicons name="checkmark-circle" size={18} color="#FFFFFF" />
-                    <Text style={styles.btnPrimaryText}>Submit Follow-up Plan</Text>
-                  </TouchableOpacity>
-                </View>
               </View>
-            )}
-          </ScrollView>
-        </View>
-
-        {/* ======================================================
-            SUB-MODAL 1: DAILY TABLET SCHEDULE & FOOD TIMING
-            (EXACT UI MATCHING USER'S ATTACHED IMAGE)
-        ======================================================= */}
-        <Modal
-          visible={isTimingModalOpen}
-          transparent
-          animationType="fade"
-          onRequestClose={() => setIsTimingModalOpen(false)}
-        >
-          <View style={styles.timingModalOverlay}>
-            <View style={styles.timingModalCard}>
-              {/* HEADER WITH TIME ICON */}
-              <View style={styles.timingCardHeader}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                  <Ionicons name="time-outline" size={20} color="#00B894" />
-                  <Text style={styles.timingCardHeaderTitle}>
-                    Daily Tablet Schedule & Food Timing
-                  </Text>
-                </View>
-                <TouchableOpacity
-                  onPress={() => setIsTimingModalOpen(false)}
-                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                >
-                  <Ionicons name="close" size={20} color="#64748B" />
-                </TouchableOpacity>
-              </View>
-
-              <ScrollView showsVerticalScrollIndicator={false}>
-                {/* 1. MORNING BLOCK */}
-                <View style={styles.timingBlock}>
-                  <View style={styles.timingBlockHeader}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                      <Ionicons name="sunny-outline" size={18} color="#00B894" />
-                      <Text style={styles.timingBlockTitle}>Morning</Text>
-                    </View>
-                    <View style={styles.timingStatusBadge}>
-                      <Text style={styles.timingStatusBadgeText}>
-                        {morningTiming.tabletOption === 'OFF'
-                          ? 'Tablet OFF'
-                          : `Tablet ON · ${morningTiming.foodTiming === 'before' ? 'Before Food' : 'After Food'}`}
-                      </Text>
-                    </View>
-                  </View>
-
-                  {/* Tablet Option Row */}
-                  <View style={styles.timingControlRow}>
-                    <Text style={styles.timingControlLabel}>Tablet Option:</Text>
-                    <View style={styles.toggleButtonsGroup}>
-                      <TouchableOpacity
-                        style={[
-                          styles.toggleBtn,
-                          morningTiming.tabletOption === 'ON' && styles.toggleBtnActiveNavy,
-                        ]}
-                        onPress={() =>
-                          setMorningTiming((prev) => ({ ...prev, tabletOption: 'ON' }))
-                        }
-                      >
-                        <Ionicons
-                          name="checkmark-circle"
-                          size={15}
-                          color={morningTiming.tabletOption === 'ON' ? '#FFFFFF' : '#64748B'}
-                        />
-                        <Text
-                          style={[
-                            styles.toggleBtnText,
-                            morningTiming.tabletOption === 'ON' && styles.toggleBtnTextActive,
-                          ]}
-                        >
-                          ON
-                        </Text>
-                      </TouchableOpacity>
-
-                      <TouchableOpacity
-                        style={[
-                          styles.toggleBtn,
-                          morningTiming.tabletOption === 'OFF' && styles.toggleBtnActiveNavy,
-                        ]}
-                        onPress={() =>
-                          setMorningTiming((prev) => ({ ...prev, tabletOption: 'OFF' }))
-                        }
-                      >
-                        <Ionicons
-                          name="close-circle"
-                          size={15}
-                          color={morningTiming.tabletOption === 'OFF' ? '#FFFFFF' : '#64748B'}
-                        />
-                        <Text
-                          style={[
-                            styles.toggleBtnText,
-                            morningTiming.tabletOption === 'OFF' && styles.toggleBtnTextActive,
-                          ]}
-                        >
-                          OFF
-                        </Text>
-                      </TouchableOpacity>
-                    </View>
-                  </View>
-
-                  {/* Food Timing Row */}
-                  <View style={styles.timingControlRow}>
-                    <Text style={styles.timingControlLabel}>Food Timing:</Text>
-                    <View style={styles.toggleButtonsGroup}>
-                      <TouchableOpacity
-                        style={[
-                          styles.toggleBtn,
-                          morningTiming.foodTiming === 'before' && styles.toggleBtnActiveNavy,
-                        ]}
-                        onPress={() =>
-                          setMorningTiming((prev) => ({ ...prev, foodTiming: 'before' }))
-                        }
-                      >
-                        <Ionicons
-                          name="time-outline"
-                          size={15}
-                          color={morningTiming.foodTiming === 'before' ? '#FFFFFF' : '#64748B'}
-                        />
-                        <Text
-                          style={[
-                            styles.toggleBtnText,
-                            morningTiming.foodTiming === 'before' && styles.toggleBtnTextActive,
-                          ]}
-                        >
-                          Before Food
-                        </Text>
-                      </TouchableOpacity>
-
-                      <TouchableOpacity
-                        style={[
-                          styles.toggleBtn,
-                          morningTiming.foodTiming === 'after' && styles.toggleBtnActiveNavy,
-                        ]}
-                        onPress={() =>
-                          setMorningTiming((prev) => ({ ...prev, foodTiming: 'after' }))
-                        }
-                      >
-                        <Ionicons
-                          name="restaurant-outline"
-                          size={15}
-                          color={morningTiming.foodTiming === 'after' ? '#FFFFFF' : '#64748B'}
-                        />
-                        <Text
-                          style={[
-                            styles.toggleBtnText,
-                            morningTiming.foodTiming === 'after' && styles.toggleBtnTextActive,
-                          ]}
-                        >
-                          After Food
-                        </Text>
-                      </TouchableOpacity>
-                    </View>
-                  </View>
-                </View>
-
-                {/* 2. AFTERNOON BLOCK */}
-                <View style={styles.timingBlock}>
-                  <View style={styles.timingBlockHeader}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                      <Ionicons name="partly-sunny-outline" size={18} color="#64748B" />
-                      <Text style={styles.timingBlockTitle}>Afternoon</Text>
-                    </View>
-                    <View style={styles.timingStatusBadge}>
-                      <Text style={styles.timingStatusBadgeText}>
-                        {afternoonTiming.tabletOption === 'OFF'
-                          ? 'Tablet OFF'
-                          : `Tablet ON · ${afternoonTiming.foodTiming === 'before' ? 'Before Food' : 'After Food'}`}
-                      </Text>
-                    </View>
-                  </View>
-
-                  {/* Tablet Option Row */}
-                  <View style={styles.timingControlRow}>
-                    <Text style={styles.timingControlLabel}>Tablet Option:</Text>
-                    <View style={styles.toggleButtonsGroup}>
-                      <TouchableOpacity
-                        style={[
-                          styles.toggleBtn,
-                          afternoonTiming.tabletOption === 'ON' && styles.toggleBtnActiveNavy,
-                        ]}
-                        onPress={() =>
-                          setAfternoonTiming((prev) => ({ ...prev, tabletOption: 'ON' }))
-                        }
-                      >
-                        <Ionicons
-                          name="checkmark-circle"
-                          size={15}
-                          color={afternoonTiming.tabletOption === 'ON' ? '#FFFFFF' : '#64748B'}
-                        />
-                        <Text
-                          style={[
-                            styles.toggleBtnText,
-                            afternoonTiming.tabletOption === 'ON' && styles.toggleBtnTextActive,
-                          ]}
-                        >
-                          ON
-                        </Text>
-                      </TouchableOpacity>
-
-                      <TouchableOpacity
-                        style={[
-                          styles.toggleBtn,
-                          afternoonTiming.tabletOption === 'OFF' && styles.toggleBtnActiveNavy,
-                        ]}
-                        onPress={() =>
-                          setAfternoonTiming((prev) => ({ ...prev, tabletOption: 'OFF' }))
-                        }
-                      >
-                        <Ionicons
-                          name="close-circle"
-                          size={15}
-                          color={afternoonTiming.tabletOption === 'OFF' ? '#FFFFFF' : '#64748B'}
-                        />
-                        <Text
-                          style={[
-                            styles.toggleBtnText,
-                            afternoonTiming.tabletOption === 'OFF' && styles.toggleBtnTextActive,
-                          ]}
-                        >
-                          OFF
-                        </Text>
-                      </TouchableOpacity>
-                    </View>
-                  </View>
-
-                  {/* Food Timing Row */}
-                  <View style={styles.timingControlRow}>
-                    <Text style={styles.timingControlLabel}>Food Timing:</Text>
-                    <View style={styles.toggleButtonsGroup}>
-                      <TouchableOpacity
-                        style={[
-                          styles.toggleBtn,
-                          afternoonTiming.foodTiming === 'before' && styles.toggleBtnActiveNavy,
-                        ]}
-                        onPress={() =>
-                          setAfternoonTiming((prev) => ({ ...prev, foodTiming: 'before' }))
-                        }
-                      >
-                        <Ionicons
-                          name="time-outline"
-                          size={15}
-                          color={afternoonTiming.foodTiming === 'before' ? '#FFFFFF' : '#64748B'}
-                        />
-                        <Text
-                          style={[
-                            styles.toggleBtnText,
-                            afternoonTiming.foodTiming === 'before' && styles.toggleBtnTextActive,
-                          ]}
-                        >
-                          Before Food
-                        </Text>
-                      </TouchableOpacity>
-
-                      <TouchableOpacity
-                        style={[
-                          styles.toggleBtn,
-                          afternoonTiming.foodTiming === 'after' && styles.toggleBtnActiveNavy,
-                        ]}
-                        onPress={() =>
-                          setAfternoonTiming((prev) => ({ ...prev, foodTiming: 'after' }))
-                        }
-                      >
-                        <Ionicons
-                          name="restaurant-outline"
-                          size={15}
-                          color={afternoonTiming.foodTiming === 'after' ? '#FFFFFF' : '#64748B'}
-                        />
-                        <Text
-                          style={[
-                            styles.toggleBtnText,
-                            afternoonTiming.foodTiming === 'after' && styles.toggleBtnTextActive,
-                          ]}
-                        >
-                          After Food
-                        </Text>
-                      </TouchableOpacity>
-                    </View>
-                  </View>
-                </View>
-
-                {/* 3. NIGHT BLOCK */}
-                <View style={styles.timingBlock}>
-                  <View style={styles.timingBlockHeader}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                      <Ionicons name="moon-outline" size={18} color="#00B894" />
-                      <Text style={styles.timingBlockTitle}>Night</Text>
-                    </View>
-                    <View style={styles.timingStatusBadge}>
-                      <Text style={styles.timingStatusBadgeText}>
-                        {nightTiming.tabletOption === 'OFF'
-                          ? 'Tablet OFF'
-                          : `Tablet ON · ${nightTiming.foodTiming === 'before' ? 'Before Food' : 'After Food'}`}
-                      </Text>
-                    </View>
-                  </View>
-
-                  {/* Tablet Option Row */}
-                  <View style={styles.timingControlRow}>
-                    <Text style={styles.timingControlLabel}>Tablet Option:</Text>
-                    <View style={styles.toggleButtonsGroup}>
-                      <TouchableOpacity
-                        style={[
-                          styles.toggleBtn,
-                          nightTiming.tabletOption === 'ON' && styles.toggleBtnActiveNavy,
-                        ]}
-                        onPress={() =>
-                          setNightTiming((prev) => ({ ...prev, tabletOption: 'ON' }))
-                        }
-                      >
-                        <Ionicons
-                          name="checkmark-circle"
-                          size={15}
-                          color={nightTiming.tabletOption === 'ON' ? '#FFFFFF' : '#64748B'}
-                        />
-                        <Text
-                          style={[
-                            styles.toggleBtnText,
-                            nightTiming.tabletOption === 'ON' && styles.toggleBtnTextActive,
-                          ]}
-                        >
-                          ON
-                        </Text>
-                      </TouchableOpacity>
-
-                      <TouchableOpacity
-                        style={[
-                          styles.toggleBtn,
-                          nightTiming.tabletOption === 'OFF' && styles.toggleBtnActiveNavy,
-                        ]}
-                        onPress={() =>
-                          setNightTiming((prev) => ({ ...prev, tabletOption: 'OFF' }))
-                        }
-                      >
-                        <Ionicons
-                          name="close-circle"
-                          size={15}
-                          color={nightTiming.tabletOption === 'OFF' ? '#FFFFFF' : '#64748B'}
-                        />
-                        <Text
-                          style={[
-                            styles.toggleBtnText,
-                            nightTiming.tabletOption === 'OFF' && styles.toggleBtnTextActive,
-                          ]}
-                        >
-                          OFF
-                        </Text>
-                      </TouchableOpacity>
-                    </View>
-                  </View>
-
-                  {/* Food Timing Row */}
-                  <View style={styles.timingControlRow}>
-                    <Text style={styles.timingControlLabel}>Food Timing:</Text>
-                    <View style={styles.toggleButtonsGroup}>
-                      <TouchableOpacity
-                        style={[
-                          styles.toggleBtn,
-                          nightTiming.foodTiming === 'before' && styles.toggleBtnActiveNavy,
-                        ]}
-                        onPress={() =>
-                          setNightTiming((prev) => ({ ...prev, foodTiming: 'before' }))
-                        }
-                      >
-                        <Ionicons
-                          name="time-outline"
-                          size={15}
-                          color={nightTiming.foodTiming === 'before' ? '#FFFFFF' : '#64748B'}
-                        />
-                        <Text
-                          style={[
-                            styles.toggleBtnText,
-                            nightTiming.foodTiming === 'before' && styles.toggleBtnTextActive,
-                          ]}
-                        >
-                          Before Food
-                        </Text>
-                      </TouchableOpacity>
-
-                      <TouchableOpacity
-                        style={[
-                          styles.toggleBtn,
-                          nightTiming.foodTiming === 'after' && styles.toggleBtnActiveNavy,
-                        ]}
-                        onPress={() =>
-                          setNightTiming((prev) => ({ ...prev, foodTiming: 'after' }))
-                        }
-                      >
-                        <Ionicons
-                          name="restaurant-outline"
-                          size={15}
-                          color={nightTiming.foodTiming === 'after' ? '#FFFFFF' : '#64748B'}
-                        />
-                        <Text
-                          style={[
-                            styles.toggleBtnText,
-                            nightTiming.foodTiming === 'after' && styles.toggleBtnTextActive,
-                          ]}
-                        >
-                          After Food
-                        </Text>
-                      </TouchableOpacity>
-                    </View>
-                  </View>
-                </View>
-
-                {/* SAVE TIMING BUTTON */}
-                <TouchableOpacity
-                  style={styles.timingSaveBtn}
-                  onPress={() => setIsTimingModalOpen(false)}
-                  activeOpacity={0.88}
-                >
-                  <Ionicons name="checkmark-circle" size={17} color="#FFFFFF" />
-                  <Text style={styles.timingSaveBtnText}>Save Schedule</Text>
-                </TouchableOpacity>
-              </ScrollView>
             </View>
-          </View>
-        </Modal>
+          </Modal>
 
-        {/* ======================================================
-            SUB-MODAL 2: CALENDAR PICKER MODAL
-        ======================================================= */}
-        <Modal
-          visible={isCalendarOpen}
-          transparent
-          animationType="fade"
-          onRequestClose={() => setIsCalendarOpen(false)}
-        >
-          <View style={styles.timingModalOverlay}>
-            <View style={styles.calModalCard}>
-              {/* Header */}
-              <View style={styles.calHeader}>
-                <View>
-                  <Text style={styles.calHeaderTitle}>Select Follow-up Date</Text>
-                  <Text style={styles.calHeaderSub}>Choose appointment date</Text>
+          {/* ======================================================
+              SUB-MODAL 3: STEP 5 CONFIRMATION POP-UP (NOTES DOWN OK)
+          ======================================================= */}
+          <Modal
+            visible={isSuccessModalOpen}
+            transparent
+            animationType="fade"
+            onRequestClose={handleFinalOk}
+          >
+            <View style={styles.subModalOverlay}>
+              <View style={styles.successCardModal}>
+                <View style={styles.successIconCircle}>
+                  <Ionicons name="checkmark-circle" size={44} color="#071E42" />
                 </View>
-                <TouchableOpacity onPress={() => setIsCalendarOpen(false)}>
-                  <Ionicons name="close" size={20} color="#FFFFFF" />
-                </TouchableOpacity>
-              </View>
 
-              {/* Quick Select Chips */}
-              <View style={styles.calQuickRow}>
-                {[
-                  { label: 'In 3 Days', days: 3 },
-                  { label: 'In 7 Days', days: 7 },
-                  { label: 'In 15 Days', days: 15 },
-                  { label: 'In 1 Month', days: 30 },
-                ].map((q) => (
-                  <TouchableOpacity
-                    key={q.label}
-                    style={styles.calQuickChip}
-                    onPress={() => handleQuickAddDays(q.days)}
-                  >
-                    <Text style={styles.calQuickChipText}>{q.label}</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-
-              {/* Month Navigation */}
-              <View style={styles.calMonthNav}>
-                <TouchableOpacity
-                  onPress={() => {
-                    if (calMonth === 0) {
-                      setCalMonth(11);
-                      setCalYear((y) => y - 1);
-                    } else {
-                      setCalMonth((m) => m - 1);
-                    }
-                  }}
-                >
-                  <Ionicons name="chevron-back" size={20} color="#071E42" />
-                </TouchableOpacity>
-
-                <Text style={styles.calMonthTitle}>
-                  {MONTHS_SHORT[calMonth]} {calYear}
+                <Text style={styles.successModalTitle}>Consultation Plan Sent to Patient</Text>
+                <Text style={styles.successModalSubtitle}>
+                  Consultation notes, e-Prescription, and diagnostic test requirements have been sent successfully to {patientName}'s MediUnify app.
                 </Text>
 
+                <View style={styles.successSummaryBox}>
+                  <View style={styles.successSummaryRow}>
+                    <Text style={styles.successSummaryLabel}>Follow-up Target</Text>
+                    <Text style={styles.successSummaryVal}>
+                      {followUpRequired === 'yes'
+                        ? `${selectedDate} (${consultMode})`
+                        : 'Not Required'}
+                    </Text>
+                  </View>
+                  {followUpRequired === 'yes' && (
+                    <View style={styles.successSummaryRow}>
+                      <Text style={styles.successSummaryLabel}>Time Slot</Text>
+                      <Text style={styles.successSummaryVal}>
+                        {selectedSlot}
+                      </Text>
+                    </View>
+                  )}
+                  <View style={styles.successSummaryRow}>
+                    <Text style={styles.successSummaryLabel}>Prescriptions</Text>
+                    <Text style={styles.successSummaryVal}>
+                      {prescribedList.length} items
+                    </Text>
+                  </View>
+                  <View style={styles.successSummaryRow}>
+                    <Text style={styles.successSummaryLabel}>Lab Tests</Text>
+                    <Text style={styles.successSummaryVal}>
+                      {testsList.length} investigations
+                    </Text>
+                  </View>
+                </View>
+
+                {/* SINGLE OK BUTTON (SPECIFIED BY USER: "pop -up notes down ok") */}
                 <TouchableOpacity
-                  onPress={() => {
-                    if (calMonth === 11) {
-                      setCalMonth(0);
-                      setCalYear((y) => y + 1);
-                    } else {
-                      setCalMonth((m) => m + 1);
-                    }
-                  }}
+                  style={styles.successOkBtn}
+                  onPress={handleFinalOk}
+                  activeOpacity={0.88}
                 >
-                  <Ionicons name="chevron-forward" size={20} color="#071E42" />
+                  <Text style={styles.successOkBtnText}>OK</Text>
                 </TouchableOpacity>
               </View>
-
-              {/* Weekday headers */}
-              <View style={styles.calWeekHeaderRow}>
-                {WEEK_DAYS.map((w) => (
-                  <Text key={w} style={styles.calWeekDayText}>
-                    {w}
-                  </Text>
-                ))}
-              </View>
-
-              {/* Days Grid */}
-              <View style={styles.calDaysGrid}>
-                {calendarDays.map((d, index) => {
-                  if (d === null) {
-                    return <View key={`blank-${index}`} style={styles.calDayCell} />;
-                  }
-                  const isSelected = calDay === d;
-                  return (
-                    <TouchableOpacity
-                      key={`day-${d}`}
-                      style={[styles.calDayCell, isSelected && styles.calDayCellSelected]}
-                      onPress={() => handleSelectDay(d)}
-                      activeOpacity={0.7}
-                    >
-                      <Text
-                        style={[
-                          styles.calDayText,
-                          isSelected && styles.calDayTextSelected,
-                        ]}
-                      >
-                        {d}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
             </View>
-          </View>
-        </Modal>
-
-        {/* ======================================================
-            SUB-MODAL 3: FINAL CONFIRMATION NOTES DOWN OK
-        ======================================================= */}
-        <Modal
-          visible={isSuccessModalOpen}
-          transparent
-          animationType="fade"
-          onRequestClose={handleFinalOk}
-        >
-          <View style={styles.timingModalOverlay}>
-            <View style={styles.successModalCard}>
-              <View style={styles.successIconCircle}>
-                <Ionicons name="checkmark-circle" size={44} color="#071E42" />
-              </View>
-
-              <Text style={styles.successModalTitle}>Follow-up Notes Recorded</Text>
-              <Text style={styles.successModalSubtitle}>
-                Follow-up plan for {patient?.name || 'patient'} has been successfully noted down and saved.
-              </Text>
-
-              {/* Summary pill box */}
-              <View style={styles.successSummaryBox}>
-                <View style={styles.successSummaryItem}>
-                  <Text style={styles.successSummaryLabel}>Scheduled Date</Text>
-                  <Text style={styles.successSummaryVal}>{selectedDate}</Text>
-                </View>
-                <View style={styles.successSummaryItem}>
-                  <Text style={styles.successSummaryLabel}>Mode</Text>
-                  <Text style={styles.successSummaryVal}>{consultMode}</Text>
-                </View>
-                <View style={styles.successSummaryItem}>
-                  <Text style={styles.successSummaryLabel}>Prescriptions</Text>
-                  <Text style={styles.successSummaryVal}>{prescribedList.length} Items</Text>
-                </View>
-                <View style={styles.successSummaryItem}>
-                  <Text style={styles.successSummaryLabel}>Lab Tests</Text>
-                  <Text style={styles.successSummaryVal}>{testsList.length} Items</Text>
-                </View>
-              </View>
-
-              {/* SINGLE OK BUTTON */}
-              <TouchableOpacity
-                style={styles.successOkBtn}
-                onPress={handleFinalOk}
-                activeOpacity={0.88}
-              >
-                <Text style={styles.successOkBtnText}>OK</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </Modal>
-      </KeyboardAvoidingView>
+          </Modal>
+        </KeyboardAvoidingView>
+      </View>
     </Modal>
   );
 }
 
 const styles = StyleSheet.create({
-  modalOverlay: {
+  /* BOTTOM SHEET OVERLAY & CONTAINER */
+  sheetOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.65)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 16,
+    backgroundColor: 'rgba(5, 15, 35, 0.65)',
+    justifyContent: 'flex-end',
   },
-  wizardContainer: {
+  sheetBackdropDismiss: {
+    flex: 1,
     width: '100%',
-    maxHeight: '92%',
+  },
+  sheetContainer: {
+    width: '100%',
+    height: '92%',
     backgroundColor: '#FFFFFF',
-    borderRadius: 22,
+    borderTopLeftRadius: 26,
+    borderTopRightRadius: 26,
+    borderBottomLeftRadius: 0,
+    borderBottomRightRadius: 0,
+    marginBottom: 0,
     overflow: 'hidden',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
+    shadowOffset: { width: 0, height: -4 },
     shadowOpacity: 0.25,
     shadowRadius: 16,
-    elevation: 10,
+    elevation: 16,
+  },
+  dragHandleContainer: {
+    width: '100%',
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    paddingTop: 8,
+    paddingBottom: 4,
+  },
+  dragHandle: {
+    width: 44,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: '#CBD5E1',
   },
 
-  /* HEADER */
-  wizardHeader: {
-    backgroundColor: '#071E42',
+  /* WHITE HEADER WITH NAVY BLUE TEXT */
+  sheetHeaderWhite: {
+    backgroundColor: '#FFFFFF',
     paddingHorizontal: 18,
-    paddingTop: 16,
-    paddingBottom: 16,
+    paddingTop: 6,
+    paddingBottom: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E2E8F0',
   },
-  wizardHeaderTopRow: {
+  headerTopRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 14,
+    marginBottom: 10,
   },
-  wizardTitleWrap: {
+  headerTitleWrap: {
     flex: 1,
   },
-  wizardHeaderTitle: {
-    fontSize: 17,
+  followUpBadgePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    alignSelf: 'flex-start',
+    backgroundColor: '#EEF4FC',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+    marginBottom: 4,
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+  },
+  followUpBadgeText: {
+    fontSize: 10,
     fontWeight: '800',
-    color: '#FFFFFF',
+    color: '#071E42',
+    letterSpacing: 0.3,
+  },
+  patientTitleText: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#071E42',
     letterSpacing: -0.3,
   },
-  wizardHeaderSubtitle: {
+  patientMetaText: {
     fontSize: 12,
-    color: '#94A3B8',
+    color: '#475569',
     marginTop: 2,
-    fontWeight: '500',
+    fontWeight: '600',
   },
-  closeBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+  headerCloseBtn: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: '#F1F5F9',
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
   },
 
-  /* STEP PROGRESS BAR */
-  stepIndicatorRow: {
+  /* 4-STEP PROGRESS INDICATOR ROW (WHITE HEADER THEMED WITH NAVY) */
+  stepProgressRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 8,
+    paddingHorizontal: 4,
+    marginTop: 6,
   },
   stepNode: {
     alignItems: 'center',
   },
-  stepNodeActive: {},
-  stepNodePast: {},
-  stepNodeText: {
+  stepNodeNumber: {
     width: 26,
     height: 26,
     borderRadius: 13,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    color: '#CBD5E1',
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1.5,
+    borderColor: '#CBD5E1',
+    color: '#64748B',
     textAlign: 'center',
     textAlignVertical: 'center',
     fontSize: 12,
     fontWeight: '700',
-    lineHeight: 26,
+    lineHeight: 23,
   },
-  stepNodeTextActive: {
-    backgroundColor: '#00B894',
+  stepNodeNumberActive: {
+    backgroundColor: '#071E42',
+    borderColor: '#071E42',
     color: '#FFFFFF',
+  },
+  stepNodeNumberPast: {
+    backgroundColor: '#EEF4FC',
+    borderWidth: 1.5,
+    borderColor: '#071E42',
+    color: '#071E42',
   },
   stepNodeLabel: {
     fontSize: 10.5,
-    color: '#94A3B8',
+    color: '#64748B',
     fontWeight: '600',
     marginTop: 3,
   },
   stepNodeLabelActive: {
-    color: '#FFFFFF',
-    fontWeight: '700',
+    color: '#071E42',
+    fontWeight: '800',
   },
   stepLine: {
     flex: 1,
     height: 2,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    backgroundColor: '#E2E8F0',
     marginBottom: 14,
-    marginHorizontal: 6,
+    marginHorizontal: 4,
   },
   stepLineActive: {
-    backgroundColor: '#00B894',
+    backgroundColor: '#071E42',
   },
 
-  /* BODY */
-  wizardScrollBody: {
-    maxHeight: 520,
+  /* SCROLLABLE BODY */
+  sheetScrollBody: {
+    flex: 1,
   },
-  wizardScrollContent: {
+  sheetScrollContent: {
     padding: 16,
     paddingBottom: 24,
   },
-  stepSection: {},
-  sectionHeaderRow: {
+  stepContentWrap: {},
+
+  sectionHeaderBanner: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
@@ -1728,7 +2086,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#CBD5E1',
   },
-  stepIconWrap: {
+  sectionIconWrap: {
     width: 36,
     height: 36,
     borderRadius: 18,
@@ -1747,15 +2105,15 @@ const styles = StyleSheet.create({
     marginTop: 1,
   },
 
-  /* INPUTS */
-  inputLabel: {
+  /* INPUT LABELS & BOXES */
+  inputFieldLabel: {
     fontSize: 12.5,
     fontWeight: '700',
     color: '#071E42',
     marginTop: 10,
     marginBottom: 5,
   },
-  textInput: {
+  textInputBox: {
     backgroundColor: '#F8FAFC',
     borderRadius: 10,
     borderWidth: 1.2,
@@ -1764,19 +2122,39 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     fontSize: 13.5,
     color: '#071E42',
-    marginBottom: 4,
+    marginBottom: 6,
   },
-  textAreaInput: {
-    minHeight: 75,
+  textAreaBox: {
+    minHeight: 70,
     textAlignVertical: 'top',
+  },
+
+  /* ADDED LISTS */
+  addedListWrap: {
+    backgroundColor: '#F8FAFC',
+    borderRadius: 12,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    marginTop: 8,
+  },
+  addedListHeaderTitle: {
+    fontSize: 12.5,
+    fontWeight: '800',
+    color: '#071E42',
+    marginBottom: 8,
+  },
+  deleteNoteBtn: {
+    padding: 4,
   },
 
   /* SEARCH & DROPDOWN */
   searchDropdownWrap: {
     position: 'relative',
     zIndex: 20,
+    marginBottom: 6,
   },
-  searchInputBox: {
+  searchInputRow: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#F8FAFC',
@@ -1784,29 +2162,28 @@ const styles = StyleSheet.create({
     borderWidth: 1.2,
     borderColor: '#CBD5E1',
     paddingHorizontal: 12,
-    height: 44,
+    paddingVertical: 9,
     gap: 8,
   },
-  searchInput: {
+  searchInputField: {
     flex: 1,
-    fontSize: 13.5,
+    fontSize: 13,
     color: '#071E42',
-    paddingVertical: 0,
+    padding: 0,
   },
-  dropdownBox: {
+  dropdownListBox: {
     backgroundColor: '#FFFFFF',
     borderRadius: 10,
     borderWidth: 1.2,
-    borderColor: '#CBD5E1',
+    borderColor: '#071E42',
     marginTop: 4,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.12,
-    shadowRadius: 6,
-    elevation: 4,
-    overflow: 'hidden',
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 6,
   },
-  dropdownItem: {
+  dropdownOption: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
@@ -1815,43 +2192,180 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#F1F5F9',
   },
-  dropdownItemText: {
+  dropdownOptionText: {
     fontSize: 13,
-    color: '#071E42',
     fontWeight: '600',
+    color: '#071E42',
   },
 
   /* DURATION CHIPS */
-  durationChipsRow: {
+  durationPillsWrap: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 7,
+    gap: 6,
     marginBottom: 6,
   },
-  durationChip: {
-    paddingHorizontal: 12,
+  durationPill: {
     paddingVertical: 7,
+    paddingHorizontal: 12,
     borderRadius: 8,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: '#F1F5F9',
     borderWidth: 1,
     borderColor: '#CBD5E1',
   },
-  durationChipActive: {
+  durationPillActive: {
     backgroundColor: '#071E42',
     borderColor: '#071E42',
   },
-  durationChipText: {
+  durationPillText: {
     fontSize: 12,
     fontWeight: '600',
     color: '#475569',
   },
-  durationChipTextActive: {
+  durationPillTextActive: {
     color: '#FFFFFF',
     fontWeight: '700',
   },
 
-  /* TIMING TRIGGER BUTTON */
-  timingTriggerBtn: {
+  /* DOSAGE PILLS */
+  dosagePillsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginBottom: 10,
+  },
+  dosageQuickBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 8,
+    backgroundColor: '#F1F5F9',
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+  },
+  dosageQuickBtnActive: {
+    backgroundColor: '#071E42',
+    borderColor: '#071E42',
+  },
+  dosageQuickBtnText: {
+    fontSize: 11.5,
+    fontWeight: '600',
+    color: '#071E42',
+  },
+  dosageQuickBtnTextActive: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+  },
+
+  /* TEST SEARCH INPUT ROW (INCREASED HEIGHT) */
+  testSearchInputRow: {
+    minHeight: 52,
+    paddingVertical: 10,
+    borderColor: '#071E42',
+    borderWidth: 1.3,
+  },
+  testSearchInputField: {
+    fontSize: 13.5,
+  },
+
+  /* TEST DROPDOWN ITEM ROW & HIGHLIGHTED SELECT BUTTON */
+  testDropdownItemRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
+    gap: 8,
+  },
+  testDropdownNameWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    flex: 1,
+    paddingRight: 6,
+  },
+  testDropdownNameText: {
+    fontSize: 13,
+    color: '#071E42',
+    fontWeight: '600',
+  },
+  testSelectHighlightBtn: {
+    backgroundColor: '#00B894',
+    paddingVertical: 6,
+    paddingHorizontal: 14,
+    borderRadius: 8,
+    shadowColor: '#00B894',
+    shadowOffset: { width: 0, height: 1.5 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3,
+    elevation: 2,
+  },
+  testSelectHighlightBtnText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '800',
+    letterSpacing: 0.3,
+  },
+
+  /* SELECTED TEST REFLECTION CARD */
+  selectedTestReflectCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#E6FAF5',
+    borderWidth: 1.5,
+    borderColor: '#00B894',
+    borderRadius: 10,
+    padding: 10,
+    marginTop: 4,
+    marginBottom: 8,
+  },
+  selectedTestReflectLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  selectedTestReflectLabel: {
+    fontSize: 10.5,
+    fontWeight: '700',
+    color: '#00897B',
+    textTransform: 'uppercase',
+    letterSpacing: 0.3,
+  },
+  selectedTestReflectValue: {
+    fontSize: 13.5,
+    fontWeight: '800',
+    color: '#071E42',
+    marginTop: 1,
+  },
+  selectedTestRemoveBtn: {
+    padding: 4,
+  },
+  testNamePlaceholderBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: '#F8FAFC',
+    borderRadius: 10,
+    borderWidth: 1.2,
+    borderColor: '#E2E8F0',
+    borderStyle: 'dashed',
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    marginBottom: 6,
+  },
+  testNamePlaceholderText: {
+    fontSize: 12.5,
+    color: '#94A3B8',
+    fontStyle: 'italic',
+  },
+
+  /* DAILY TABLET SCHEDULE & FOOD TIMING BUTTON */
+  timingTriggerCard: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -1860,7 +2374,7 @@ const styles = StyleSheet.create({
     borderWidth: 1.2,
     borderColor: '#071E42',
     padding: 12,
-    marginBottom: 8,
+    marginBottom: 6,
   },
   timingTriggerLeft: {
     flexDirection: 'row',
@@ -1875,132 +2389,154 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: '#CBD5E1',
   },
   timingTriggerTitle: {
     fontSize: 13,
-    fontWeight: '700',
+    fontWeight: '800',
     color: '#071E42',
   },
-  timingTriggerSubtitle: {
+  timingTriggerSummary: {
     fontSize: 11,
     color: '#475569',
-    marginTop: 1,
+    marginTop: 2,
   },
-  timingBadgePill: {
+  timingConfigBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
     backgroundColor: '#FFFFFF',
+    paddingVertical: 5,
     paddingHorizontal: 10,
-    paddingVertical: 6,
     borderRadius: 8,
     borderWidth: 1,
     borderColor: '#CBD5E1',
   },
-  timingBadgeText: {
-    fontSize: 12,
+  timingConfigBadgeText: {
+    fontSize: 11.5,
     fontWeight: '700',
     color: '#071E42',
   },
 
-  /* ADD BUTTONS & PRESCRIBED LIST */
-  addMedicineBtn: {
+  /* ADD ITEM BUTTON */
+  addItemBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
     backgroundColor: '#071E42',
+    paddingVertical: 10,
     borderRadius: 10,
-    paddingVertical: 11,
-    marginTop: 8,
+    marginTop: 6,
     marginBottom: 10,
   },
-  addMedicineBtnText: {
-    color: '#FFFFFF',
-    fontSize: 13.5,
+  addItemBtnText: {
+    fontSize: 13,
     fontWeight: '700',
+    color: '#FFFFFF',
   },
-  prescribedListWrap: {
-    backgroundColor: '#F8FAFC',
-    borderRadius: 12,
-    padding: 12,
+
+  /* PRESCRIBED / TEST ITEM CARD */
+  prescribedItemCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 10,
+    padding: 10,
     borderWidth: 1,
     borderColor: '#E2E8F0',
-    marginBottom: 10,
-  },
-  prescribedListHeader: {
-    fontSize: 12.5,
-    fontWeight: '700',
-    color: '#071E42',
     marginBottom: 8,
   },
-  prescribedCard: {
+  prescribedItemTop: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 8,
-    padding: 10,
-    borderWidth: 1,
-    borderColor: '#CBD5E1',
-    marginBottom: 6,
   },
-  prescribedName: {
-    fontSize: 13,
+  prescribedItemName: {
+    fontSize: 13.5,
     fontWeight: '700',
     color: '#071E42',
   },
-  prescribedSub: {
+  prescribedItemDuration: {
     fontSize: 11.5,
     color: '#64748B',
-    marginTop: 2,
+    marginTop: 1,
   },
-  prescribedInst: {
+  prescribedScheduleBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#EEF4FC',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    marginTop: 6,
+    alignSelf: 'flex-start',
+  },
+  prescribedScheduleText: {
     fontSize: 11,
-    color: '#00B894',
-    marginTop: 2,
+    color: '#071E42',
     fontWeight: '600',
   },
+  prescribedNoteText: {
+    fontSize: 11.5,
+    color: '#475569',
+    marginTop: 4,
+    fontStyle: 'italic',
+  },
 
-  /* PRESET BUTTONS FOR TESTING */
+  /* TEST INSTRUCTION CHIPS */
+  quickAddLabel: {
+    fontSize: 11.5,
+    fontWeight: '700',
+    color: '#64748B',
+    marginTop: 4,
+    marginBottom: 6,
+  },
   presetButtonsWrap: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 7,
+    gap: 6,
     marginBottom: 8,
   },
-  presetChipBtn: {
+  presetInstructionBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
-    backgroundColor: '#EEF4FC',
-    paddingVertical: 7,
-    paddingHorizontal: 11,
+    backgroundColor: '#F1F5F9',
+    paddingVertical: 6,
+    paddingHorizontal: 10,
     borderRadius: 8,
     borderWidth: 1,
     borderColor: '#CBD5E1',
   },
-  presetChipBtnActive: {
+  presetInstructionBtnActive: {
     backgroundColor: '#071E42',
     borderColor: '#071E42',
   },
-  presetChipText: {
-    fontSize: 11.5,
+  presetInstructionBtnText: {
+    fontSize: 11,
     fontWeight: '600',
     color: '#071E42',
   },
-  presetChipTextActive: {
+  presetInstructionBtnTextActive: {
     color: '#FFFFFF',
     fontWeight: '700',
   },
+  testInstructionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 6,
+  },
+  testInstructionText: {
+    fontSize: 11.5,
+    color: '#071E42',
+    fontWeight: '600',
+  },
 
-  /* STEP 4 MODE & DATE PICKER */
+  /* MODE SELECTOR (STEP 4) */
   modeToggleRow: {
     flexDirection: 'row',
     gap: 10,
-    marginBottom: 10,
+    marginBottom: 8,
   },
   modeToggleBtn: {
     flex: 1,
@@ -2008,7 +2544,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
-    paddingVertical: 11,
+    paddingVertical: 10,
     borderRadius: 10,
     backgroundColor: '#F8FAFC',
     borderWidth: 1.2,
@@ -2026,7 +2562,9 @@ const styles = StyleSheet.create({
   modeToggleTextActive: {
     color: '#FFFFFF',
   },
-  datePickerBtn: {
+
+  /* CALENDAR TRIGGER BUTTON */
+  calendarTriggerBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -2037,187 +2575,232 @@ const styles = StyleSheet.create({
     padding: 12,
     marginBottom: 8,
   },
-  datePickerLeft: {
+  calTriggerLeft: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
   },
-  dateIconWrap: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
+  calIconBadge: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     backgroundColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: '#CBD5E1',
   },
-  datePickerTitle: {
+  calTriggerTitle: {
     fontSize: 14,
     fontWeight: '800',
     color: '#071E42',
   },
-  datePickerSub: {
+  calTriggerSub: {
     fontSize: 11,
     color: '#64748B',
     marginTop: 1,
   },
-  dateChangeBadge: {
+  calTriggerPill: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
     backgroundColor: '#FFFFFF',
+    paddingVertical: 5,
     paddingHorizontal: 10,
-    paddingVertical: 6,
     borderRadius: 8,
     borderWidth: 1,
     borderColor: '#CBD5E1',
   },
-  dateChangeText: {
-    fontSize: 12,
+  calTriggerPillText: {
+    fontSize: 11.5,
     fontWeight: '700',
     color: '#071E42',
   },
 
-  /* SUMMARY CARD */
-  summaryCard: {
+  /* TIME SLOTS */
+  timeSlotsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginBottom: 10,
+  },
+  timeSlotPill: {
+    paddingVertical: 7,
+    paddingHorizontal: 11,
+    borderRadius: 8,
+    backgroundColor: '#F1F5F9',
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+  },
+  timeSlotPillActive: {
+    backgroundColor: '#071E42',
+    borderColor: '#071E42',
+  },
+  timeSlotPillText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#475569',
+  },
+  timeSlotPillTextActive: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+  },
+
+  /* SUMMARY OVERVIEW CARD */
+  summaryReviewCard: {
     backgroundColor: '#F8FAFC',
     borderRadius: 12,
     padding: 12,
-    borderWidth: 1.2,
+    borderWidth: 1,
     borderColor: '#CBD5E1',
-    marginTop: 8,
-    marginBottom: 12,
+    marginTop: 6,
+    gap: 6,
   },
-  summaryCardTitle: {
+  summaryReviewHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 4,
+  },
+  summaryReviewTitle: {
     fontSize: 13,
     fontWeight: '800',
     color: '#071E42',
-    marginBottom: 8,
   },
-  summaryRow: {
+  summaryReviewRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingVertical: 3,
+    paddingVertical: 2,
   },
-  summaryLabel: {
+  summaryReviewLabel: {
     fontSize: 12,
     color: '#64748B',
   },
-  summaryVal: {
+  summaryReviewVal: {
     fontSize: 12,
     fontWeight: '700',
     color: '#071E42',
-    textAlign: 'right',
-    flex: 1,
-    marginLeft: 10,
   },
 
-  /* NAVIGATION BUTTONS */
-  navButtonsRow: {
+  /* STATIC BUTTONS DOWN (COVER SHEET DOWN) */
+  staticBottomBar: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    marginTop: 14,
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: Platform.OS === 'ios' ? 34 : 20,
+    backgroundColor: '#FFFFFF',
+    borderTopWidth: 1,
+    borderTopColor: '#E2E8F0',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -3 },
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
+    elevation: 8,
   },
-  btnSecondary: {
+  staticBackBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 4,
-    paddingVertical: 11,
+    gap: 5,
+    paddingVertical: 12,
     paddingHorizontal: 14,
     borderRadius: 10,
-    borderWidth: 1.2,
+    backgroundColor: '#F1F5F9',
+    borderWidth: 1,
     borderColor: '#CBD5E1',
-    backgroundColor: '#F8FAFC',
   },
-  btnSecondaryText: {
+  staticBackBtnText: {
     fontSize: 13,
     fontWeight: '700',
     color: '#475569',
   },
-  btnSkip: {
-    paddingVertical: 11,
-    paddingHorizontal: 14,
+  staticSkipBtn: {
+    paddingVertical: 12,
+    paddingHorizontal: 12,
     borderRadius: 10,
-    borderWidth: 1.2,
-    borderColor: '#E2E8F0',
     backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  btnSkipText: {
+  staticSkipBtnText: {
     fontSize: 13,
     fontWeight: '600',
     color: '#64748B',
   },
-  btnPrimary: {
+  staticPrimaryBtn: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
-    paddingVertical: 11,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
     borderRadius: 10,
     backgroundColor: '#071E42',
+    shadowColor: '#071E42',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 4,
   },
-  btnPrimaryText: {
+  staticPrimaryBtnText: {
     fontSize: 13.5,
     fontWeight: '800',
     color: '#FFFFFF',
+    letterSpacing: -0.2,
   },
 
-  /* ==========================================================
-     TIMING SUB-MODAL (MATCHING IMAGE)
-  ========================================================== */
-  timingModalOverlay: {
+  /* SUB-MODAL OVERLAYS & CARDS */
+  subModalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.65)',
+    backgroundColor: 'rgba(5, 15, 35, 0.7)',
     justifyContent: 'center',
     alignItems: 'center',
     padding: 16,
   },
-  timingModalCard: {
+
+  /* TIMING SUB-MODAL */
+  timingCardModal: {
     width: '100%',
-    maxWidth: 420,
     maxHeight: '85%',
     backgroundColor: '#FFFFFF',
     borderRadius: 20,
-    padding: 18,
-    borderWidth: 1.5,
-    borderColor: '#00B89430',
+    padding: 16,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.25,
-    shadowRadius: 12,
-    elevation: 8,
+    shadowRadius: 14,
+    elevation: 10,
   },
   timingCardHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingBottom: 14,
+    paddingBottom: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#F1F5F9',
+    borderBottomColor: '#E2E8F0',
     marginBottom: 12,
   },
   timingCardHeaderTitle: {
-    fontSize: 15,
+    fontSize: 14.5,
     fontWeight: '800',
     color: '#071E42',
   },
   timingBlock: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 14,
-    borderWidth: 1.2,
-    borderColor: '#E2E8F0',
+    backgroundColor: '#F8FAFC',
+    borderRadius: 12,
     padding: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
     marginBottom: 10,
   },
   timingBlockHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 10,
+    marginBottom: 8,
   },
   timingBlockTitle: {
     fontSize: 14,
@@ -2225,15 +2808,15 @@ const styles = StyleSheet.create({
     color: '#071E42',
   },
   timingStatusBadge: {
-    backgroundColor: '#F1F5F9',
-    paddingHorizontal: 9,
-    paddingVertical: 4,
-    borderRadius: 12,
+    backgroundColor: '#EEF4FC',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 6,
   },
   timingStatusBadgeText: {
-    fontSize: 11,
+    fontSize: 10.5,
     fontWeight: '700',
-    color: '#475569',
+    color: '#071E42',
   },
   timingControlRow: {
     flexDirection: 'row',
@@ -2242,26 +2825,23 @@ const styles = StyleSheet.create({
     marginTop: 6,
   },
   timingControlLabel: {
-    fontSize: 12.5,
+    fontSize: 12,
     fontWeight: '600',
-    color: '#64748B',
-    width: 95,
+    color: '#475569',
   },
   toggleButtonsGroup: {
-    flex: 1,
     flexDirection: 'row',
-    gap: 8,
+    gap: 6,
   },
   toggleBtn: {
-    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: 5,
-    paddingVertical: 7,
-    borderRadius: 8,
+    gap: 4,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 7,
     backgroundColor: '#FFFFFF',
-    borderWidth: 1.2,
+    borderWidth: 1,
     borderColor: '#CBD5E1',
   },
   toggleBtnActiveNavy: {
@@ -2269,9 +2849,9 @@ const styles = StyleSheet.create({
     borderColor: '#071E42',
   },
   toggleBtnText: {
-    fontSize: 12,
+    fontSize: 11.5,
     fontWeight: '700',
-    color: '#334155',
+    color: '#475569',
   },
   toggleBtnTextActive: {
     color: '#FFFFFF',
@@ -2280,104 +2860,76 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
+    gap: 8,
     backgroundColor: '#071E42',
-    borderRadius: 10,
     paddingVertical: 12,
+    borderRadius: 10,
     marginTop: 8,
-    marginBottom: 4,
   },
   timingSaveBtnText: {
-    color: '#FFFFFF',
-    fontSize: 14,
+    fontSize: 13.5,
     fontWeight: '800',
+    color: '#FFFFFF',
   },
 
-  /* CALENDAR MODAL */
-  calModalCard: {
-    width: '100%',
-    maxWidth: 360,
+  /* CALENDAR SUB-MODAL */
+  calendarCardModal: {
+    width: '92%',
     backgroundColor: '#FFFFFF',
-    borderRadius: 18,
-    overflow: 'hidden',
+    borderRadius: 20,
+    padding: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.25,
+    shadowRadius: 12,
+    elevation: 8,
   },
-  calHeader: {
-    backgroundColor: '#071E42',
-    paddingHorizontal: 16,
-    paddingVertical: 14,
+  calendarCardHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    marginBottom: 12,
   },
-  calHeaderTitle: {
+  calendarCardHeaderTitle: {
     fontSize: 16,
     fontWeight: '800',
-    color: '#FFFFFF',
+    color: '#071E42',
   },
-  calHeaderSub: {
-    fontSize: 11,
-    color: '#94A3B8',
-    marginTop: 1,
-  },
-  calQuickRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 6,
-    padding: 10,
+  calNavBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     backgroundColor: '#EEF4FC',
-  },
-  calQuickChip: {
-    backgroundColor: '#FFFFFF',
-    paddingHorizontal: 9,
-    paddingVertical: 5,
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: '#CBD5E1',
-  },
-  calQuickChipText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#071E42',
-  },
-  calMonthNav: {
-    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-  },
-  calMonthTitle: {
-    fontSize: 14.5,
-    fontWeight: '800',
-    color: '#071E42',
+    justifyContent: 'center',
   },
   calWeekHeaderRow: {
     flexDirection: 'row',
-    paddingHorizontal: 12,
-    paddingBottom: 6,
+    justifyContent: 'space-around',
+    marginBottom: 8,
   },
   calWeekDayText: {
-    flex: 1,
+    width: 36,
     textAlign: 'center',
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: '700',
     color: '#64748B',
   },
   calDaysGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    paddingHorizontal: 12,
-    paddingBottom: 14,
+    justifyContent: 'space-around',
   },
   calDayCell: {
-    width: `${100 / 7}%`,
-    height: 38,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
+    marginVertical: 3,
   },
   calDayCellSelected: {
     backgroundColor: '#071E42',
-    borderRadius: 19,
   },
   calDayText: {
     fontSize: 13,
@@ -2388,20 +2940,38 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontWeight: '800',
   },
+  calQuickSelectRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 14,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: '#E2E8F0',
+  },
+  calQuickSelectChip: {
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 8,
+    backgroundColor: '#EEF4FC',
+  },
+  calQuickSelectText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#071E42',
+  },
 
-  /* SUCCESS CONFIRMATION MODAL ("notes down ok") */
-  successModalCard: {
-    width: '100%',
-    maxWidth: 360,
+  /* SUCCESS CONFIRMATION MODAL */
+  successCardModal: {
+    width: '90%',
     backgroundColor: '#FFFFFF',
     borderRadius: 20,
-    padding: 22,
+    padding: 20,
     alignItems: 'center',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.25,
-    shadowRadius: 12,
-    elevation: 8,
+    shadowRadius: 14,
+    elevation: 10,
   },
   successIconCircle: {
     width: 64,
@@ -2435,7 +3005,7 @@ const styles = StyleSheet.create({
     marginVertical: 14,
     gap: 6,
   },
-  successSummaryItem: {
+  successSummaryRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
   },
@@ -2460,5 +3030,317 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '800',
     color: '#FFFFFF',
+  },
+
+  /* STEP 1: SINGLE CONSULT NOTES */
+  singleConsultNotesBox: {
+    minHeight: 180,
+    backgroundColor: '#F8FAFC',
+    borderRadius: 14,
+    borderWidth: 1.5,
+    borderColor: '#CBD5E1',
+    padding: 14,
+    fontSize: 14,
+    color: '#071E42',
+    lineHeight: 22,
+    marginBottom: 16,
+  },
+
+  /* STEP 2 & 3: TALL SEARCH & HIGHLIGHT SELECT */
+  searchBoxTall: {
+    minHeight: 52,
+    height: 52,
+    paddingHorizontal: 14,
+  },
+  searchInputFieldTall: {
+    fontSize: 14,
+    height: 52,
+  },
+  dropdownItemRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
+  },
+  dropdownItemInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    flex: 1,
+    paddingRight: 8,
+  },
+  dropdownItemName: {
+    fontSize: 13.5,
+    fontWeight: '600',
+    color: '#071E42',
+  },
+  dropdownHighlightSelectBtn: {
+    backgroundColor: '#00B894',
+    paddingVertical: 6,
+    paddingHorizontal: 14,
+    borderRadius: 8,
+    shadowColor: '#00B894',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 3,
+    elevation: 3,
+  },
+  dropdownHighlightSelectBtnText: {
+    fontSize: 12.5,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    letterSpacing: 0.3,
+  },
+
+  /* QUICK ADD-UP PILLS */
+  quickAddPillsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 8,
+    marginBottom: 16,
+  },
+  quickAddPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingVertical: 7,
+    paddingHorizontal: 12,
+    borderRadius: 20,
+    backgroundColor: '#EEF4FC',
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+  },
+  quickAddPillActive: {
+    backgroundColor: '#071E42',
+    borderColor: '#071E42',
+  },
+  quickAddPillText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#071E42',
+  },
+  quickAddPillTextActive: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+  },
+
+  /* TIMING SCHEDULE SUMMARY & TRIGGER */
+  timingSummaryCard: {
+    backgroundColor: '#F8FAFC',
+    borderRadius: 12,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    marginBottom: 8,
+  },
+  timingSummaryTitle: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#64748B',
+    marginBottom: 4,
+    textTransform: 'uppercase',
+  },
+  timingSummaryText: {
+    fontSize: 12.5,
+    fontWeight: '600',
+    color: '#071E42',
+    lineHeight: 18,
+  },
+  addTimingScheduleBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 11,
+    borderRadius: 12,
+    backgroundColor: '#EEF4FC',
+    borderWidth: 1.5,
+    borderColor: '#CBD5E1',
+    marginBottom: 16,
+  },
+  addTimingScheduleBtnText: {
+    fontSize: 13.5,
+    fontWeight: '700',
+    color: '#071E42',
+  },
+
+  /* ADD BUTTONS FOR PRESCRIPTION & TESTS */
+  addToPrescriptionMainBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 14,
+    borderRadius: 14,
+    backgroundColor: '#071E42',
+    marginTop: 6,
+    marginBottom: 16,
+    shadowColor: '#071E42',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.25,
+    shadowRadius: 5,
+    elevation: 4,
+  },
+  addToPrescriptionMainBtnText: {
+    fontSize: 14.5,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    letterSpacing: 0.3,
+  },
+  testDetailRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 4,
+  },
+  testDetailText: {
+    fontSize: 12,
+    color: '#475569',
+    fontWeight: '500',
+  },
+
+  /* STEP 4: YES / NO TOGGLE & DETAILS REVIEW */
+  yesNoToggleRow: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 16,
+  },
+  yesNoToggleBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 13,
+    paddingHorizontal: 16,
+    borderRadius: 14,
+    backgroundColor: '#F1F5F9',
+    borderWidth: 1.5,
+    borderColor: '#E2E8F0',
+  },
+  yesToggleBtnActive: {
+    backgroundColor: '#071E42',
+    borderColor: '#071E42',
+  },
+  noToggleBtnActive: {
+    backgroundColor: '#071E42',
+    borderColor: '#071E42',
+  },
+  yesNoToggleText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#475569',
+  },
+  yesNoToggleTextActive: {
+    color: '#FFFFFF',
+  },
+  noFollowUpNoticeBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: '#F8FAFC',
+    padding: 14,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    marginBottom: 16,
+  },
+  noFollowUpNoticeText: {
+    fontSize: 12.5,
+    color: '#64748B',
+    flex: 1,
+    lineHeight: 18,
+    fontWeight: '500',
+  },
+  detailsReviewMasterCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 1.5,
+    borderColor: '#CBD5E1',
+    marginBottom: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  detailsReviewSection: {
+    paddingVertical: 4,
+  },
+  detailsReviewSectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
+    marginBottom: 6,
+  },
+  detailsReviewSectionTitle: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#071E42',
+    textTransform: 'uppercase',
+    letterSpacing: 0.3,
+  },
+  detailsReviewNotesText: {
+    fontSize: 13,
+    color: '#334155',
+    lineHeight: 19,
+    paddingLeft: 4,
+  },
+  detailsReviewDivider: {
+    height: 1,
+    backgroundColor: '#E2E8F0',
+    marginVertical: 12,
+  },
+  detailsReviewItemRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+    marginTop: 5,
+    paddingLeft: 4,
+  },
+  detailsReviewBullet: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#071E42',
+    marginTop: 6,
+  },
+  detailsReviewItemName: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  detailsReviewItemSub: {
+    fontSize: 11.5,
+    color: '#64748B',
+    marginTop: 2,
+  },
+  detailsReviewEmptyText: {
+    fontSize: 12,
+    fontStyle: 'italic',
+    color: '#94A3B8',
+    paddingLeft: 4,
+  },
+  detailsReviewFollowUpBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: '#F8FAFC',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    marginTop: 4,
+  },
+  detailsReviewFollowUpText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#071E42',
   },
 });

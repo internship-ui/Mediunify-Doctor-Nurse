@@ -1,3 +1,4 @@
+import { SafeAreaView } from 'react-native-safe-area-context';
 import React from 'react';
 import {
   View,
@@ -6,7 +7,6 @@ import {
   Image,
   TouchableOpacity,
   Dimensions,
-  SafeAreaView,
   StatusBar,
 } from 'react-native';
 import { colors, radius, typography } from '../theme/colors';

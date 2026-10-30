@@ -1,7 +1,9 @@
 export { default as WebContainer } from './WebContainer';
 export { default as MobileAppWebWrapper } from './MobileAppWebWrapper';
 export { default as WebLandingPage } from './landing/WebLandingPage';
+export { default as RoleSelectionPage } from './auth/RoleSelectionPage';
 export { default as DoctorAuthPage } from './auth/DoctorAuthPage';
+export { default as DoctorClaimProfilePage } from './auth/DoctorClaimProfilePage';
 export { default as NurseAuthPage } from './auth/NurseAuthPage';
 export { default as DoctorWebPortal } from './doctor/DoctorWebPortal';
 export { default as DesktopWebPortal } from './doctor/DoctorWebPortal';
