@@ -1,11 +1,8 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import React from 'react';
+import { View, Text, StyleSheet, ScrollView } from 'react-native';
 import { doctor, appointments } from '../../data/mockData';
 
 export default function DoctorEarningsPage() {
-  const [payoutRequested, setPayoutRequested] = useState(false);
-
   const transactions = [
     { id: 'tx-1', patient: 'Rahul Kumar', service: 'Video Consultation', date: 'Today, 10:00 AM', amount: 500, status: 'Settled' },
     { id: 'tx-2', patient: 'Priya Sharma', service: 'In-Clinic Consultation', date: 'Today, 11:30 AM', amount: 500, status: 'Pending' },
@@ -19,13 +16,6 @@ export default function DoctorEarningsPage() {
   const todayEarnings = 1500;
   const thisMonthTotal = 42800;
 
-  const handlePayout = () => {
-    setPayoutRequested(true);
-    setTimeout(() => {
-      alert('Withdrawal request of ₹24,650 submitted to verified bank account (HDFC Bank ••••4128). Expected credit in 24 hours.');
-    }, 400);
-  };
-
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <View style={styles.pageHeader}>
@@ -33,18 +23,6 @@ export default function DoctorEarningsPage() {
           <Text style={styles.pageTitle}>Earnings & Financial Billing</Text>
           <Text style={styles.pageSub}>Track consultation revenue, payout settlement history, and tax statements</Text>
         </View>
-
-        <TouchableOpacity
-          style={[styles.payoutBtn, payoutRequested && styles.payoutBtnDisabled]}
-          onPress={handlePayout}
-          disabled={payoutRequested}
-          activeOpacity={0.8}
-        >
-          <Ionicons name="card" size={16} color="#FFFFFF" />
-          <Text style={styles.payoutBtnText}>
-            {payoutRequested ? 'Withdrawal Processing' : 'Withdraw Balance to Bank'}
-          </Text>
-        </TouchableOpacity>
       </View>
 
       {/* Financial Stat Cards */}
@@ -52,7 +30,7 @@ export default function DoctorEarningsPage() {
         <View style={styles.statCard}>
           <Text style={styles.statLabel}>Available Balance</Text>
           <Text style={[styles.statValue, { color: '#00B894' }]}>₹{totalBalance.toLocaleString()}</Text>
-          <Text style={styles.statSub}>Ready for bank withdrawal</Text>
+          <Text style={styles.statSub}>Account balance</Text>
         </View>
 
         <View style={styles.statCard}>
@@ -134,24 +112,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#64748B',
     marginTop: 2,
-  },
-  payoutBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    backgroundColor: '#00B894',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 8,
-    boxShadow: '0 2px 8px rgba(0, 184, 148, 0.35)',
-  },
-  payoutBtnDisabled: {
-    backgroundColor: '#94A3B8',
-  },
-  payoutBtnText: {
-    color: '#FFFFFF',
-    fontSize: 12,
-    fontWeight: '700',
   },
   statsRow: {
     flexDirection: 'row',

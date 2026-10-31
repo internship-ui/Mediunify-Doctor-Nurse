@@ -444,20 +444,6 @@ export default function DoctorDashboardPage({
 
         {/* Header Action Controls */}
         <View style={styles.topRightGroup}>
-          {/* Dark / Light Mode Toggle Button */}
-          <TouchableOpacity
-            style={[styles.headerIconBtn, { backgroundColor: theme.mutedBg }]}
-            onPress={() => setDarkMode(!darkMode)}
-            activeOpacity={0.75}
-            accessibilityLabel="Toggle Dark/Light Mode"
-          >
-            <Ionicons
-              name={darkMode ? 'sunny-outline' : 'moon-outline'}
-              size={19}
-              color="#0D9488"
-            />
-          </TouchableOpacity>
-
           {/* Mail / Messages Button */}
           <TouchableOpacity
             style={[styles.headerIconBtn, { backgroundColor: theme.mutedBg }]}
